@@ -1,0 +1,68 @@
+[package]
+authors      = ["Karl Gylleus <karl.gylleus@gmail.com>"]
+categories   = ["game-engines", "rendering"]
+description  = "A Bevy plugin for rendering 3d mesh outlines."
+edition      = "2024"
+exclude      = [".github/", "assets/"]
+keywords     = ["bevy", "gamedev", "graphics", "outline"]
+license      = "MIT OR Apache-2.0"
+name         = "bevy_liminal"
+readme       = "README.md"
+repository   = "https://github.com/natepiano/bevy_liminal"
+rust-version = "1.92.0"
+version      = "0.3.0"
+
+[dependencies]
+bevy = { version = "0.18.1", default-features = false, features = [
+  "bevy_asset",
+  "bevy_color",
+  "bevy_core_pipeline",
+  "bevy_image",
+  "bevy_log",
+  "bevy_mesh",
+  "bevy_pbr",
+  "bevy_render",
+  "bevy_shader",
+  "std",
+] }
+bevy_render = "0.18.1"
+bytemuck = "1"
+nonmax = "0.5"
+rand = "0.10.0"
+tracing = "0.1"
+wgpu-types = "27"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.4.2", features = ["wasm_js"] }
+
+[dev-dependencies]
+bevy_brp_extras      = "0.18.7"
+bevy_panorbit_camera = "0.34.0"
+bevy_window_manager  = "0.18.2"
+
+
+[[example]]
+name = "simple"
+path = "examples/simple.rs"
+
+
+[[example]]
+name = "intersecting"
+path = "examples/intersecting.rs"
+
+
+[[example]]
+name = "animated_mesh"
+path = "examples/animated_mesh.rs"
+
+[[example]]
+name = "transparent"
+path = "examples/transparent.rs"
+
+[[example]]
+name = "msaa"
+path = "examples/msaa.rs"
+
+[[example]]
+name = "benchmark"
+path = "examples/benchmark.rs"

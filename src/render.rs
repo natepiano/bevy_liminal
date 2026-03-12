@@ -1,0 +1,352 @@
+use bevy::ecs::query::ROQueryItem;
+use bevy::ecs::system::SystemParamItem;
+use bevy::ecs::system::lifetimeless::SRes;
+use bevy::pbr::RenderMeshInstances;
+use bevy::prelude::*;
+use bevy_render::render_phase::PhaseItem;
+use bevy_render::render_phase::RenderCommand;
+use bevy_render::render_phase::RenderCommandResult;
+use bevy_render::render_phase::TrackedRenderPass;
+use bevy_render::render_phase::ViewBinnedRenderPhases;
+use bevy_render::render_resource::BindGroup;
+use bevy_render::render_resource::BindGroupEntries;
+use bevy_render::render_resource::BindGroupEntry;
+use bevy_render::render_resource::GpuArrayBuffer;
+use bevy_render::render_resource::PipelineCache;
+use bevy_render::renderer::RenderDevice;
+use bevy_render::renderer::RenderQueue;
+use bytemuck::Zeroable;
+
+use super::ActiveOutlineModes;
+use super::ExtractedOutlineUniforms;
+use super::HullOutline3d;
+use super::hull_pipeline::HullPipeline;
+use super::mask::MeshOutline3d;
+use super::mask_pipeline::MeshMaskPipeline;
+use super::texture::FloodTextures;
+use super::uniforms::OutlineUniform;
+
+pub struct SetOutlineBindGroup<const I: usize>();
+
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOutlineBindGroup<I> {
+    type Param = SRes<OutlineBindGroup>;
+    type ViewQuery = ();
+    type ItemQuery = ();
+
+    fn render<'w>(
+        _item: &P,
+        _view: ROQueryItem<'w, '_, Self::ViewQuery>,
+        _entity_data: Option<()>,
+        outline_bind_group: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let outline_bind_group = outline_bind_group.into_inner();
+
+        if let Some(ref bind_group) = outline_bind_group.0 {
+            pass.set_bind_group(I, bind_group, &[]);
+            RenderCommandResult::Success
+        } else {
+            RenderCommandResult::Skip
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct OutlineUniformBuffer(pub GpuArrayBuffer<OutlineUniform>);
+
+#[derive(Resource, Default)]
+pub struct OutlineBindGroup(pub Option<BindGroup>);
+
+#[derive(Resource)]
+pub struct HullOutlineUniformBuffer(pub GpuArrayBuffer<OutlineUniform>);
+
+#[derive(Resource, Default)]
+pub struct HullOutlineBindGroup(pub Option<BindGroup>);
+
+/// Pushes `OutlineUniform` data into the `GpuArrayBuffer` in the same order
+/// that `batch_and_prepare_binned_render_phase` pushes `MeshUniform` data,
+/// so that `instance_index` in the shader indexes both buffers identically.
+///
+/// In the GPU preprocessing path, `batch_and_prepare` processes every entity in
+/// the bins unconditionally. In the CPU path it calls `get_binned_batch_data`
+/// which skips entities whose mesh instance is missing. We must mirror that
+/// skip logic exactly so our indices stay aligned.
+pub fn prepare_outline_buffer(
+    render_mesh_instances: Res<RenderMeshInstances>,
+    extracted_outlines: Res<ExtractedOutlineUniforms>,
+    outline_phases: Res<ViewBinnedRenderPhases<MeshOutline3d>>,
+    mut outline_buffer: ResMut<OutlineUniformBuffer>,
+) {
+    outline_buffer.0.clear();
+
+    let cpu_building = matches!(*render_mesh_instances, RenderMeshInstances::CpuBuilding(_));
+
+    for phase in outline_phases.values() {
+        // Walk multidrawable meshes first — GPU path processes these before batchables.
+        for bins in phase.multidrawable_meshes.values() {
+            for bin in bins.values() {
+                for &main_entity in bin.entities().keys() {
+                    let outline_uniform = extracted_outlines
+                        .by_main_entity
+                        .get(&main_entity)
+                        .map(OutlineUniform::from)
+                        .unwrap_or(OutlineUniform::zeroed());
+                    outline_buffer.0.push(outline_uniform);
+                }
+            }
+        }
+
+        // Walk batchable meshes in the same iteration order as `batch_and_prepare`
+        for bin in phase.batchable_meshes.values() {
+            for &main_entity in bin.entities().keys() {
+                // In CPU mode, `get_binned_batch_data` skips entities with no
+                // mesh instance — mirror that here so indices stay aligned.
+                // In GPU mode, `batch_and_prepare` never skips, so neither do we.
+                if cpu_building
+                    && render_mesh_instances
+                        .render_mesh_queue_data(main_entity)
+                        .is_none()
+                {
+                    continue;
+                }
+
+                let outline_uniform = extracted_outlines
+                    .by_main_entity
+                    .get(&main_entity)
+                    .map(OutlineUniform::from)
+                    .unwrap_or(OutlineUniform::zeroed());
+                outline_buffer.0.push(outline_uniform);
+            }
+        }
+
+        // Walk unbatchable meshes in the same order
+        for unbatchables in phase.unbatchable_meshes.values() {
+            for &main_entity in unbatchables.entities.keys() {
+                if cpu_building
+                    && render_mesh_instances
+                        .render_mesh_queue_data(main_entity)
+                        .is_none()
+                {
+                    continue;
+                }
+
+                let outline_uniform = extracted_outlines
+                    .by_main_entity
+                    .get(&main_entity)
+                    .map(OutlineUniform::from)
+                    .unwrap_or(OutlineUniform::zeroed());
+                outline_buffer.0.push(outline_uniform);
+            }
+        }
+    }
+}
+
+/// Writes the outline buffer to the GPU and creates a single bind group.
+pub fn prepare_outline_bind_group(
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
+    outline_pipeline: Res<MeshMaskPipeline>,
+    mut outline_buffer: ResMut<OutlineUniformBuffer>,
+    mut outline_bind_group: ResMut<OutlineBindGroup>,
+) {
+    outline_buffer.0.write_buffer(&render_device, &render_queue);
+
+    if let Some(binding) = outline_buffer.0.binding() {
+        let bind_group = render_device.create_bind_group(
+            Some("outline_bind_group"),
+            &pipeline_cache.get_bind_group_layout(&outline_pipeline.outline_bind_group_layout),
+            &[BindGroupEntry {
+                binding:  0,
+                resource: binding,
+            }],
+        );
+        outline_bind_group.0 = Some(bind_group);
+    } else {
+        outline_bind_group.0 = None;
+    }
+}
+
+pub struct SetHullOutlineBindGroup<const I: usize>();
+
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetHullOutlineBindGroup<I> {
+    type Param = SRes<HullOutlineBindGroup>;
+    type ViewQuery = ();
+    type ItemQuery = ();
+
+    fn render<'w>(
+        _item: &P,
+        _view: ROQueryItem<'w, '_, Self::ViewQuery>,
+        _entity_data: Option<()>,
+        outline_bind_group: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let outline_bind_group = outline_bind_group.into_inner();
+
+        if let Some(ref bind_group) = outline_bind_group.0 {
+            pass.set_bind_group(I, bind_group, &[]);
+            RenderCommandResult::Success
+        } else {
+            RenderCommandResult::Skip
+        }
+    }
+}
+
+pub struct SetHullDepthBindGroup<const I: usize>();
+
+#[derive(Component)]
+pub struct HullDepthViewBindGroup(pub BindGroup);
+
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetHullDepthBindGroup<I> {
+    type Param = ();
+    type ViewQuery = &'static HullDepthViewBindGroup;
+    type ItemQuery = ();
+
+    fn render<'w>(
+        _item: &P,
+        depth_bind_group: ROQueryItem<'w, '_, Self::ViewQuery>,
+        _entity_data: Option<()>,
+        _param: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        pass.set_bind_group(I, &depth_bind_group.0, &[]);
+        RenderCommandResult::Success
+    }
+}
+
+pub fn prepare_hull_depth_view_bind_groups(
+    active: Res<ActiveOutlineModes>,
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
+    pipeline: Res<HullPipeline>,
+    views: Query<(Entity, &FloodTextures)>,
+) {
+    if !active.has_hull {
+        return;
+    }
+
+    for (entity, flood_textures) in &views {
+        let Some(owner_texture) = flood_textures.owner_texture.as_ref() else {
+            continue;
+        };
+
+        let outline_depth_view = flood_textures
+            .outline_depth_texture
+            .create_view(&bevy_render::render_resource::TextureViewDescriptor::default());
+        let owner_view = &owner_texture.default_view;
+
+        let bind_group = render_device.create_bind_group(
+            Some("hull_depth_bind_group"),
+            &pipeline_cache.get_bind_group_layout(&pipeline.depth_bind_group_layout),
+            &BindGroupEntries::sequential((
+                &pipeline.occlusion_sampler,
+                &outline_depth_view,
+                owner_view,
+            )),
+        );
+        commands
+            .entity(entity)
+            .insert(HullDepthViewBindGroup(bind_group));
+    }
+}
+
+pub fn prepare_hull_outline_buffer(
+    active: Res<ActiveOutlineModes>,
+    render_mesh_instances: Res<RenderMeshInstances>,
+    extracted_outlines: Res<ExtractedOutlineUniforms>,
+    outline_phases: Res<ViewBinnedRenderPhases<HullOutline3d>>,
+    mut outline_buffer: ResMut<HullOutlineUniformBuffer>,
+) {
+    outline_buffer.0.clear();
+
+    if !active.has_hull {
+        return;
+    }
+
+    let cpu_building = matches!(*render_mesh_instances, RenderMeshInstances::CpuBuilding(_));
+
+    for phase in outline_phases.values() {
+        for bins in phase.multidrawable_meshes.values() {
+            for bin in bins.values() {
+                for &main_entity in bin.entities().keys() {
+                    let outline_uniform = extracted_outlines
+                        .by_main_entity
+                        .get(&main_entity)
+                        .map(OutlineUniform::from)
+                        .unwrap_or(OutlineUniform::zeroed());
+                    outline_buffer.0.push(outline_uniform);
+                }
+            }
+        }
+
+        for bin in phase.batchable_meshes.values() {
+            for &main_entity in bin.entities().keys() {
+                if cpu_building
+                    && render_mesh_instances
+                        .render_mesh_queue_data(main_entity)
+                        .is_none()
+                {
+                    continue;
+                }
+
+                let outline_uniform = extracted_outlines
+                    .by_main_entity
+                    .get(&main_entity)
+                    .map(OutlineUniform::from)
+                    .unwrap_or(OutlineUniform::zeroed());
+                outline_buffer.0.push(outline_uniform);
+            }
+        }
+
+        for unbatchables in phase.unbatchable_meshes.values() {
+            for &main_entity in unbatchables.entities.keys() {
+                if cpu_building
+                    && render_mesh_instances
+                        .render_mesh_queue_data(main_entity)
+                        .is_none()
+                {
+                    continue;
+                }
+
+                let outline_uniform = extracted_outlines
+                    .by_main_entity
+                    .get(&main_entity)
+                    .map(OutlineUniform::from)
+                    .unwrap_or(OutlineUniform::zeroed());
+                outline_buffer.0.push(outline_uniform);
+            }
+        }
+    }
+}
+
+pub fn prepare_hull_outline_bind_group(
+    active: Res<ActiveOutlineModes>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
+    outline_pipeline: Res<HullPipeline>,
+    mut outline_buffer: ResMut<HullOutlineUniformBuffer>,
+    mut outline_bind_group: ResMut<HullOutlineBindGroup>,
+) {
+    if !active.has_hull {
+        outline_bind_group.0 = None;
+        return;
+    }
+
+    outline_buffer.0.write_buffer(&render_device, &render_queue);
+
+    if let Some(binding) = outline_buffer.0.binding() {
+        let bind_group = render_device.create_bind_group(
+            Some("hull_outline_bind_group"),
+            &pipeline_cache.get_bind_group_layout(&outline_pipeline.outline_bind_group_layout),
+            &[BindGroupEntry {
+                binding:  0,
+                resource: binding,
+            }],
+        );
+        outline_bind_group.0 = Some(bind_group);
+    } else {
+        outline_bind_group.0 = None;
+    }
+}

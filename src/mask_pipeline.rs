@@ -1,0 +1,305 @@
+use bevy::core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
+use bevy::ecs::system::SystemParamItem;
+use bevy::ecs::system::lifetimeless::SRes;
+use bevy::mesh::MeshVertexBufferLayoutRef;
+use bevy::pbr::MeshInputUniform;
+use bevy::pbr::MeshPipeline;
+use bevy::pbr::MeshPipelineKey;
+use bevy::pbr::MeshUniform;
+use bevy::pbr::RenderMeshInstances;
+use bevy::pbr::SkinUniforms;
+use bevy::prelude::*;
+use bevy::shader::ShaderDefVal;
+use bevy_render::batching::GetBatchData;
+use bevy_render::batching::GetFullBatchData;
+use bevy_render::batching::gpu_preprocessing::IndirectParametersCpuMetadata;
+use bevy_render::batching::gpu_preprocessing::UntypedPhaseIndirectParametersBuffers;
+use bevy_render::mesh::RenderMesh;
+use bevy_render::mesh::allocator::MeshAllocator;
+use bevy_render::render_asset::RenderAssets;
+use bevy_render::render_resource::BindGroupLayoutDescriptor;
+use bevy_render::render_resource::BindGroupLayoutEntries;
+use bevy_render::render_resource::ColorTargetState;
+use bevy_render::render_resource::ColorWrites;
+use bevy_render::render_resource::CompareFunction;
+use bevy_render::render_resource::DepthStencilState;
+use bevy_render::render_resource::Face;
+use bevy_render::render_resource::FragmentState;
+use bevy_render::render_resource::GpuArrayBuffer;
+use bevy_render::render_resource::RenderPipelineDescriptor;
+use bevy_render::render_resource::ShaderStages;
+use bevy_render::render_resource::SpecializedMeshPipeline;
+use bevy_render::render_resource::SpecializedMeshPipelineError;
+use bevy_render::render_resource::TextureFormat;
+use bevy_render::renderer::RenderDevice;
+use bevy_render::sync_world::MainEntity;
+use nonmax::NonMaxU32;
+use wgpu_types::MultisampleState;
+
+use super::uniforms::OutlineUniform;
+use crate::shaders::MASK_SHADER_HANDLE;
+
+#[derive(Resource)]
+pub struct MeshMaskPipeline {
+    pub mesh_pipeline:                MeshPipeline,
+    pub outline_bind_group_layout:    BindGroupLayoutDescriptor,
+    /// `Some(N)` on WebGL2 where only fixed-size uniform arrays are available,
+    /// `None` on native GPU where unbounded storage buffer arrays are supported.
+    /// When `Some`, injects the `PER_OBJECT_BUFFER_BATCH_SIZE` shader def so the
+    /// WGSL shader declares a fixed-size array instead of an unbounded one.
+    pub per_object_buffer_batch_size: Option<u32>,
+}
+
+impl FromWorld for MeshMaskPipeline {
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.get_resource::<RenderDevice>().unwrap();
+
+        let outline_instance_bind_group_layout = BindGroupLayoutDescriptor::new(
+            "OutlineInstance",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::VERTEX_FRAGMENT,
+                (GpuArrayBuffer::<OutlineUniform>::binding_layout(
+                    &render_device.limits(),
+                ),),
+            ),
+        );
+
+        let per_object_buffer_batch_size =
+            GpuArrayBuffer::<OutlineUniform>::batch_size(&render_device.limits());
+
+        let mesh_pipeline = MeshPipeline::from_world(world);
+
+        Self {
+            mesh_pipeline,
+            outline_bind_group_layout: outline_instance_bind_group_layout,
+            per_object_buffer_batch_size,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct MaskPipelineKey {
+    pub mesh_key: MeshPipelineKey,
+    pub has_hull: bool,
+}
+
+impl SpecializedMeshPipeline for MeshMaskPipeline {
+    type Key = MaskPipelineKey;
+
+    fn specialize(
+        &self,
+        key: Self::Key,
+        layout: &MeshVertexBufferLayoutRef,
+    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
+        let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
+
+        // Force single-sample rendering. The mask pass renders data (UV coords, depth,
+        // width, color) into `Rgba32Float` textures, not visual output. Multisampling
+        // this data would produce incorrect interpolated values at mesh edges.
+        descriptor.multisample = MultisampleState::default();
+
+        descriptor.vertex.shader = MASK_SHADER_HANDLE;
+
+        let mut shader_defs = vec![];
+        if let Some(per_object_buffer_batch_size) = self.per_object_buffer_batch_size {
+            shader_defs.push(ShaderDefVal::UInt(
+                "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
+                per_object_buffer_batch_size,
+            ));
+        }
+        if key.has_hull {
+            shader_defs.push(ShaderDefVal::Bool("HULL_OUTLINES".into(), true));
+        }
+
+        descriptor.vertex.shader_defs.extend(shader_defs.clone());
+
+        let mut targets = vec![
+            // RT0: flood data (uv.xy, width, depth)
+            Some(ColorTargetState {
+                format:     TextureFormat::Rgba32Float,
+                blend:      None,
+                write_mask: ColorWrites::ALL,
+            }),
+            // RT1: appearance data (color.rgb, priority)
+            Some(ColorTargetState {
+                format:     TextureFormat::Rgba32Float,
+                blend:      None,
+                write_mask: ColorWrites::ALL,
+            }),
+        ];
+        if key.has_hull {
+            // RT2: owner ID data (owner_id in x) — only when hull outlines exist
+            targets.push(Some(ColorTargetState {
+                format:     TextureFormat::Rgba32Float,
+                blend:      None,
+                write_mask: ColorWrites::ALL,
+            }));
+        }
+
+        descriptor.fragment = Some(FragmentState {
+            shader: MASK_SHADER_HANDLE,
+            shader_defs,
+            entry_point: Some("fragment".into()),
+            targets,
+        });
+
+        descriptor.depth_stencil = Some(DepthStencilState {
+            format:              CORE_3D_DEPTH_FORMAT,
+            depth_write_enabled: true,
+            depth_compare:       CompareFunction::GreaterEqual,
+            stencil:             default(),
+            bias:                default(),
+        });
+        descriptor.label = Some("outline_pipeline".into());
+        descriptor
+            .layout
+            .push(self.outline_bind_group_layout.clone());
+        descriptor.primitive.cull_mode = Some(Face::Back);
+
+        Ok(descriptor)
+    }
+}
+
+impl GetBatchData for MeshMaskPipeline {
+    type Param = (
+        SRes<RenderMeshInstances>,
+        SRes<RenderAssets<RenderMesh>>,
+        SRes<MeshAllocator>,
+        SRes<SkinUniforms>,
+    );
+    type CompareData = AssetId<Mesh>;
+
+    type BufferData = MeshUniform;
+
+    fn get_batch_data(
+        (mesh_instances, _, mesh_allocator, skin_uniforms): &SystemParamItem<Self::Param>,
+        (_entity, main_entity): (Entity, MainEntity),
+    ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
+        let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
+            tracing::error!(
+                "`get_batch_data` should never be called in GPU mesh uniform \
+                building mode"
+            );
+            return None;
+        };
+        let mesh_instance = mesh_instances.get(&main_entity)?;
+        let first_vertex_index =
+            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
+                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
+                None => 0,
+            };
+
+        let current_skin_index = skin_uniforms.skin_index(main_entity);
+        let material_bind_group_index = mesh_instance.material_bindings_index;
+
+        Some((
+            MeshUniform::new(
+                &mesh_instance.transforms,
+                first_vertex_index,
+                material_bind_group_index.slot,
+                None,
+                current_skin_index,
+                Some(mesh_instance.tag),
+            ),
+            Some(mesh_instance.mesh_asset_id),
+        ))
+    }
+}
+
+impl GetFullBatchData for MeshMaskPipeline {
+    type BufferInputData = MeshInputUniform;
+
+    fn get_index_and_compare_data(
+        (mesh_instances, _, _, _): &SystemParamItem<Self::Param>,
+        main_entity: MainEntity,
+    ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
+        // This should only be called during GPU building.
+        let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
+            tracing::error!(
+                "`get_index_and_compare_data` should never be called in CPU mesh uniform \
+                building mode"
+            );
+            return None;
+        };
+
+        let mesh_instance = mesh_instances.get(&main_entity)?;
+
+        Some((
+            mesh_instance.current_uniform_index,
+            Some(mesh_instance.mesh_asset_id),
+        ))
+    }
+
+    fn get_binned_batch_data(
+        (mesh_instances, _, mesh_allocator, skin_uniforms): &SystemParamItem<Self::Param>,
+        main_entity: MainEntity,
+    ) -> Option<Self::BufferData> {
+        let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
+            tracing::error!(
+                "`get_binned_batch_data` should never be called in GPU mesh uniform building mode"
+            );
+            return None;
+        };
+        let mesh_instance = mesh_instances.get(&main_entity)?;
+        let first_vertex_index =
+            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
+                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
+                None => 0,
+            };
+
+        let current_skin_index = skin_uniforms.skin_index(main_entity);
+
+        Some(MeshUniform::new(
+            &mesh_instance.transforms,
+            first_vertex_index,
+            mesh_instance.material_bindings_index.slot,
+            None,
+            current_skin_index,
+            Some(mesh_instance.tag),
+        ))
+    }
+
+    fn get_binned_index(
+        (mesh_instances, _, _, _): &SystemParamItem<Self::Param>,
+        main_entity: MainEntity,
+    ) -> Option<NonMaxU32> {
+        // This should only be called during GPU building.
+        let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
+            tracing::error!(
+                "`get_binned_index` should never be called in CPU mesh uniform \
+                building mode"
+            );
+            return None;
+        };
+
+        mesh_instances
+            .get(&main_entity)
+            .map(|entity| entity.current_uniform_index)
+    }
+
+    fn write_batch_indirect_parameters_metadata(
+        indexed: bool,
+        base_output_index: u32,
+        batch_set_index: Option<NonMaxU32>,
+        phase_indirect_parameters_buffers: &mut UntypedPhaseIndirectParametersBuffers,
+        indirect_parameters_offset: u32,
+    ) {
+        let indirect_parameters = IndirectParametersCpuMetadata {
+            base_output_index,
+            batch_set_index: match batch_set_index {
+                Some(batch_set_index) => u32::from(batch_set_index),
+                None => !0,
+            },
+        };
+
+        if indexed {
+            phase_indirect_parameters_buffers
+                .indexed
+                .set(indirect_parameters_offset, indirect_parameters);
+        } else {
+            phase_indirect_parameters_buffers
+                .non_indexed
+                .set(indirect_parameters_offset, indirect_parameters);
+        }
+    }
+}

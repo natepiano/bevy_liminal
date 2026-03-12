@@ -1,0 +1,906 @@
+use std::env;
+use std::fmt::Write as FmtWrite;
+
+use bevy::color::palettes::css::DARK_SEA_GREEN;
+use bevy::color::palettes::css::YELLOW;
+use bevy::diagnostic::DiagnosticsStore;
+use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
+use bevy::ecs::system::SystemParam;
+use bevy::input::keyboard::KeyboardInput;
+use bevy::prelude::*;
+use bevy::window::PresentMode;
+use bevy::winit::WinitSettings;
+use bevy_brp_extras::BrpExtrasPlugin;
+use bevy_liminal::MeshOutline;
+use bevy_liminal::MeshOutlinePlugin;
+use bevy_liminal::OutlineCamera;
+use bevy_liminal::OutlineMode;
+use bevy_liminal::OverlapMode;
+use bevy_window_manager::WindowManagerPlugin;
+use rand::RngExt;
+
+// --- Main ---
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "bevy_liminal benchmark".into(),
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            }),
+            ..default()
+        }))
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(BrpExtrasPlugin::default())
+        .add_plugins(MeshOutlinePlugin)
+        .add_plugins(WindowManagerPlugin)
+        .insert_resource(WinitSettings::continuous())
+        .insert_resource(BenchmarkState::new())
+        .insert_resource(HudUpdateTimer(Timer::from_seconds(
+            HUD_UPDATE_INTERVAL,
+            TimerMode::Repeating,
+        )))
+        .add_systems(Startup, setup_benchmark)
+        .add_systems(
+            Update,
+            (
+                benchmark_tick,
+                handle_input.run_if(on_message::<KeyboardInput>),
+                update_hud,
+            ),
+        )
+        .run();
+}
+
+// --- Constants ---
+
+const AMBIENT_LIGHT_BRIGHTNESS: f32 = 200.0;
+const AUTO_MODE_ENV_VAR: &str = "BENCHMARK_AUTO";
+const CAMERA_LOOK_AT: Vec3 = Vec3::new(0.0, 4.0, 0.0);
+const CAMERA_POSITION: Vec3 = Vec3::new(8.0, 2.0, 14.0);
+const CUBE_FILL_RATIO_5: f32 = 0.45;
+const CUBE_FILL_RATIO_10: f32 = 0.65;
+const CUBE_FILL_RATIO_100: f32 = 0.55;
+const CUBE_FILL_RATIO_1000: f32 = 0.35;
+const CUBE_FILL_RATIO_10000: f32 = 0.25;
+const CUBE_FILL_RATIO_50000: f32 = 0.15;
+const DEFAULT_OUTLINE_INTENSITY: f32 = 1.0;
+const DEFAULT_OUTLINE_WIDTH: f32 = 5.0;
+const DEPTH_SPACING_MULTIPLIER: f32 = 3.0;
+const GRID_FILL_FRACTION: f32 = 0.95;
+const GROUND_PLANE_SIZE: f32 = 100.0;
+const GROUND_PLANE_Y: f32 = -3.0;
+const HUD_FONT_SIZE: f32 = 18.0;
+const HUD_PADDING: f32 = 10.0;
+const HUD_UPDATE_INTERVAL: f32 = 0.25;
+const LIGHT_INTENSITY: f32 = 10_000_000.0;
+const LIGHT_POSITION: Vec3 = Vec3::new(8.0, 16.0, 8.0);
+const LIGHT_RANGE: f32 = 100.0;
+const MEASURE_FRAMES: u32 = 600;
+const MS_PER_SECOND: f64 = 1000.0;
+const WARMUP_FRAMES: u32 = 120;
+
+// --- Scenario Definitions ---
+
+#[derive(Clone, Copy)]
+struct ScenarioDefinition {
+    name: &'static str,
+    key:  KeyCode,
+    kind: ScenarioKind,
+}
+
+#[derive(Clone, Copy)]
+enum ScenarioKind {
+    Grid {
+        count:     u32,
+        width:     f32,
+        cube_fill: f32,
+    },
+}
+
+const SCENARIOS: &[ScenarioDefinition] = &[
+    ScenarioDefinition {
+        name: "Entities1",
+        key:  KeyCode::Digit1,
+        kind: ScenarioKind::Grid {
+            count:     1,
+            width:     DEFAULT_OUTLINE_WIDTH,
+            cube_fill: CUBE_FILL_RATIO_5,
+        },
+    },
+    ScenarioDefinition {
+        name: "Entities5",
+        key:  KeyCode::Digit2,
+        kind: ScenarioKind::Grid {
+            count:     5,
+            width:     DEFAULT_OUTLINE_WIDTH,
+            cube_fill: CUBE_FILL_RATIO_5,
+        },
+    },
+    ScenarioDefinition {
+        name: "Entities10",
+        key:  KeyCode::Digit3,
+        kind: ScenarioKind::Grid {
+            count:     10,
+            width:     DEFAULT_OUTLINE_WIDTH,
+            cube_fill: CUBE_FILL_RATIO_10,
+        },
+    },
+    ScenarioDefinition {
+        name: "Entities100",
+        key:  KeyCode::Digit4,
+        kind: ScenarioKind::Grid {
+            count:     100,
+            width:     DEFAULT_OUTLINE_WIDTH,
+            cube_fill: CUBE_FILL_RATIO_100,
+        },
+    },
+    ScenarioDefinition {
+        name: "Entities1000",
+        key:  KeyCode::Digit5,
+        kind: ScenarioKind::Grid {
+            count:     1000,
+            width:     DEFAULT_OUTLINE_WIDTH,
+            cube_fill: CUBE_FILL_RATIO_1000,
+        },
+    },
+    ScenarioDefinition {
+        name: "Entities10000",
+        key:  KeyCode::Digit6,
+        kind: ScenarioKind::Grid {
+            count:     10000,
+            width:     DEFAULT_OUTLINE_WIDTH,
+            cube_fill: CUBE_FILL_RATIO_10000,
+        },
+    },
+    ScenarioDefinition {
+        name: "Entities50000",
+        key:  KeyCode::Digit7,
+        kind: ScenarioKind::Grid {
+            count:     50000,
+            width:     DEFAULT_OUTLINE_WIDTH,
+            cube_fill: CUBE_FILL_RATIO_50000,
+        },
+    },
+];
+
+// --- Benchmark State ---
+
+#[derive(PartialEq, Eq)]
+enum BenchmarkMode {
+    Auto,
+    Interactive,
+}
+
+enum BenchmarkPhase {
+    Idle,
+    Setup,
+    Warmup,
+    Measure,
+    Analyze,
+}
+
+struct ScenarioResult {
+    name:      String,
+    frames:    u32,
+    avg_ms:    f64,
+    median_ms: f64,
+    p95_ms:    f64,
+    p99_ms:    f64,
+    min_ms:    f64,
+    max_ms:    f64,
+}
+
+impl ScenarioResult {
+    fn avg_fps(&self) -> f64 {
+        if self.avg_ms > 0.0 {
+            MS_PER_SECOND / self.avg_ms
+        } else {
+            0.0
+        }
+    }
+}
+
+#[derive(Resource)]
+struct BenchmarkState {
+    mode:             BenchmarkMode,
+    current_scenario: usize,
+    outline_enabled:  bool,
+    outline_mode:     OutlineMode,
+    phase:            BenchmarkPhase,
+    frame_counter:    u32,
+    frame_times:      Vec<f64>,
+    results:          Vec<ScenarioResult>,
+}
+
+impl BenchmarkState {
+    fn new() -> Self {
+        let (mode, phase) = if env::var(AUTO_MODE_ENV_VAR).is_ok_and(|v| v == "1") {
+            (BenchmarkMode::Auto, BenchmarkPhase::Setup)
+        } else {
+            (BenchmarkMode::Interactive, BenchmarkPhase::Idle)
+        };
+
+        Self {
+            mode,
+            current_scenario: 0,
+            outline_enabled: false,
+            outline_mode: OutlineMode::default(),
+            phase,
+            frame_counter: 0,
+            frame_times: Vec::with_capacity(MEASURE_FRAMES as usize),
+            results: Vec::with_capacity(SCENARIOS.len() * 2),
+        }
+    }
+
+    fn result_name(&self) -> String {
+        let scenario = &SCENARIOS[self.current_scenario];
+        let suffix = if self.outline_enabled { "on" } else { "off" };
+        let mode_label = outline_mode_label(self.outline_mode);
+        format!("{} {suffix} ({mode_label})", scenario.name)
+    }
+}
+
+const fn outline_mode_label(mode: OutlineMode) -> &'static str {
+    match mode {
+        OutlineMode::JumpFlood => "JumpFlood",
+        OutlineMode::WorldHull => "WorldHull",
+        OutlineMode::ScreenHull => "ScreenHull",
+    }
+}
+
+const fn next_outline_mode(mode: OutlineMode) -> OutlineMode {
+    match mode {
+        OutlineMode::JumpFlood => OutlineMode::WorldHull,
+        OutlineMode::WorldHull => OutlineMode::ScreenHull,
+        OutlineMode::ScreenHull => OutlineMode::JumpFlood,
+    }
+}
+
+// --- Marker Components ---
+
+#[derive(Component)]
+struct BenchmarkEntity;
+
+#[derive(Component)]
+struct HudText;
+
+#[derive(Component)]
+struct ExperimentLabel;
+
+#[derive(Resource)]
+struct HudUpdateTimer(Timer);
+
+// --- Setup ---
+
+fn setup_benchmark(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_translation(CAMERA_POSITION).looking_at(CAMERA_LOOK_AT, Vec3::Y),
+        OutlineCamera,
+        AmbientLight {
+            brightness: AMBIENT_LIGHT_BRIGHTNESS,
+            ..default()
+        },
+    ));
+
+    commands.spawn((
+        PointLight {
+            shadows_enabled: true,
+            intensity: LIGHT_INTENSITY,
+            range: LIGHT_RANGE,
+            ..default()
+        },
+        Transform::from_translation(LIGHT_POSITION),
+    ));
+
+    commands.spawn((
+        Mesh3d(
+            meshes.add(
+                Plane3d::default()
+                    .mesh()
+                    .size(GROUND_PLANE_SIZE, GROUND_PLANE_SIZE)
+                    .subdivisions(10),
+            ),
+        ),
+        MeshMaterial3d(materials.add(Color::from(DARK_SEA_GREEN))),
+        Transform::from_xyz(0.0, GROUND_PLANE_Y, 0.0),
+    ));
+
+    // HUD text
+    commands.spawn((
+        Text::new("Initializing benchmark..."),
+        TextFont {
+            font_size: HUD_FONT_SIZE,
+            ..default()
+        },
+        TextColor(Color::WHITE),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(HUD_PADDING),
+            left: Val::Px(HUD_PADDING),
+            ..default()
+        },
+        HudText,
+    ));
+
+    commands.spawn((
+        Text::new("experiment"),
+        TextFont {
+            font_size: HUD_FONT_SIZE,
+            ..default()
+        },
+        TextColor(Color::WHITE),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(HUD_PADDING),
+            right: Val::Px(HUD_PADDING),
+            ..default()
+        },
+        ExperimentLabel,
+    ));
+}
+
+// --- Viewport Info ---
+
+struct ViewportInfo {
+    right:         Vec3,
+    up:            Vec3,
+    forward:       Vec3,
+    center:        Vec3,
+    usable_width:  f32,
+    usable_height: f32,
+}
+
+fn compute_viewport_info(
+    camera_transform: &Transform,
+    projection: &Projection,
+    window: &Window,
+) -> ViewportInfo {
+    let fov = match projection {
+        Projection::Perspective(persp) => persp.fov,
+        Projection::Orthographic(_) | Projection::Custom(_) => std::f32::consts::FRAC_PI_4,
+    };
+
+    let distance = camera_transform.translation.distance(CAMERA_LOOK_AT);
+    let aspect = window.width() / window.height();
+    let visible_height = 2.0 * distance * (fov / 2.0).tan();
+    let visible_width = visible_height * aspect;
+
+    let right = camera_transform.right().as_vec3();
+    let up = camera_transform.up().as_vec3();
+    let forward = camera_transform.forward().as_vec3();
+
+    ViewportInfo {
+        right,
+        up,
+        forward,
+        center: CAMERA_LOOK_AT,
+        usable_width: visible_width * GRID_FILL_FRACTION,
+        usable_height: visible_height * GRID_FILL_FRACTION,
+    }
+}
+
+// --- Scenario Spawning ---
+
+fn spawn_scenario(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    scenario: &ScenarioDefinition,
+    viewport: &ViewportInfo,
+    outline_enabled: bool,
+    outline_mode: OutlineMode,
+) {
+    let ScenarioKind::Grid {
+        count,
+        width,
+        cube_fill,
+    } = scenario.kind;
+    spawn_grid(
+        commands,
+        meshes,
+        materials,
+        GridSpawnSpec {
+            count,
+            width,
+            cube_fill,
+            viewport,
+            outline_enabled,
+            outline_mode,
+        },
+    );
+}
+
+fn random_outline_color() -> Color {
+    let mut rng = rand::rng();
+    Color::srgb(rng.random(), rng.random(), rng.random())
+}
+
+fn build_outline(width: f32, outline_mode: OutlineMode) -> MeshOutline {
+    match outline_mode {
+        OutlineMode::JumpFlood => MeshOutline::builder(width)
+            .with_intensity(DEFAULT_OUTLINE_INTENSITY)
+            .with_color(random_outline_color())
+            .build(),
+        OutlineMode::WorldHull => MeshOutline::builder(width)
+            .with_intensity(DEFAULT_OUTLINE_INTENSITY)
+            .with_color(random_outline_color())
+            .to_world_hull()
+            .with_overlap(OverlapMode::Individual)
+            .build(),
+        OutlineMode::ScreenHull => MeshOutline::builder(width)
+            .with_intensity(DEFAULT_OUTLINE_INTENSITY)
+            .with_color(random_outline_color())
+            .to_screen_hull()
+            .with_overlap(OverlapMode::Individual)
+            .build(),
+    }
+}
+
+fn spawn_grid(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    spec: GridSpawnSpec<'_>,
+) {
+    let GridSpawnSpec {
+        count,
+        width,
+        cube_fill,
+        viewport,
+        outline_enabled,
+        outline_mode,
+    } = spec;
+    let mesh_handle = meshes.add(Cuboid::default());
+    let material_handle = materials.add(Color::from(YELLOW));
+
+    if count > 100 {
+        // 3D grid: 10x10 front face, depth layers as needed
+        let cols: u32 = 10;
+        let rows: u32 = 10;
+        let face_size = cols * rows;
+        let layers = count.div_ceil(face_size);
+        let h_spacing = viewport.usable_width / cols as f32;
+        let v_spacing = viewport.usable_height / rows as f32;
+        let cube_scale = v_spacing * cube_fill;
+
+        let mut spawned = 0u32;
+        for depth in 0..layers {
+            for row in 0..rows {
+                for col in 0..cols {
+                    if spawned >= count {
+                        break;
+                    }
+                    let col_offset = col as f32 - (cols as f32 - 1.0) / 2.0;
+                    let row_offset = row as f32 - (rows as f32 - 1.0) / 2.0;
+                    let depth_offset = depth as f32;
+                    let position = viewport.center
+                        + col_offset * h_spacing * viewport.right
+                        + row_offset * v_spacing * viewport.up
+                        + depth_offset * v_spacing * DEPTH_SPACING_MULTIPLIER * viewport.forward;
+                    let mut entity = commands.spawn((
+                        Mesh3d(mesh_handle.clone()),
+                        MeshMaterial3d(material_handle.clone()),
+                        Transform::from_translation(position).with_scale(Vec3::splat(cube_scale)),
+                        BenchmarkEntity,
+                    ));
+                    if outline_enabled {
+                        entity.insert(build_outline(width, outline_mode));
+                    }
+                    spawned += 1;
+                }
+            }
+        }
+    } else {
+        // 2D grid
+        let cols = (count as f32).sqrt().ceil() as u32;
+        let rows = count.div_ceil(cols);
+        let h_spacing = viewport.usable_width / cols as f32;
+        let v_spacing = viewport.usable_height / rows as f32;
+        let cube_scale = v_spacing * cube_fill;
+
+        let mut spawned = 0u32;
+        for row in 0..rows {
+            for col in 0..cols {
+                if spawned >= count {
+                    break;
+                }
+                let col_offset = col as f32 - (cols as f32 - 1.0) / 2.0;
+                let row_offset = row as f32 - (rows as f32 - 1.0) / 2.0;
+                let position = viewport.center
+                    + col_offset * h_spacing * viewport.right
+                    + row_offset * v_spacing * viewport.up;
+                let mut entity = commands.spawn((
+                    Mesh3d(mesh_handle.clone()),
+                    MeshMaterial3d(material_handle.clone()),
+                    Transform::from_translation(position).with_scale(Vec3::splat(cube_scale)),
+                    BenchmarkEntity,
+                ));
+                if outline_enabled {
+                    entity.insert(
+                        MeshOutline::new(width)
+                            .with_intensity(DEFAULT_OUTLINE_INTENSITY)
+                            .with_color(random_outline_color()),
+                    );
+                }
+                spawned += 1;
+            }
+        }
+    }
+}
+
+struct GridSpawnSpec<'a> {
+    count:           u32,
+    width:           f32,
+    cube_fill:       f32,
+    viewport:        &'a ViewportInfo,
+    outline_enabled: bool,
+    outline_mode:    OutlineMode,
+}
+
+// --- Main Benchmark Tick ---
+
+#[derive(SystemParam)]
+struct BenchmarkTickParams<'w, 's> {
+    commands:           Commands<'w, 's>,
+    state:              ResMut<'w, BenchmarkState>,
+    meshes:             ResMut<'w, Assets<Mesh>>,
+    materials:          ResMut<'w, Assets<StandardMaterial>>,
+    time:               Res<'w, Time<Real>>,
+    benchmark_entities: Query<'w, 's, Entity, With<BenchmarkEntity>>,
+    camera_query:       Query<'w, 's, (&'static Transform, &'static Projection), With<Camera3d>>,
+    windows:            Query<'w, 's, &'static Window>,
+}
+
+fn benchmark_tick(mut params: BenchmarkTickParams<'_, '_>) {
+    match params.state.phase {
+        BenchmarkPhase::Idle => {},
+        BenchmarkPhase::Setup => {
+            // Despawn previous scenario entities
+            for entity in &params.benchmark_entities {
+                params.commands.entity(entity).despawn();
+            }
+
+            let result_name = params.state.result_name();
+            params.state.results.retain(|r| r.name != result_name);
+
+            let scenario = &SCENARIOS[params.state.current_scenario];
+            let outline_label = if params.state.outline_enabled {
+                "on"
+            } else {
+                "off"
+            };
+            info!(
+                "Setting up scenario: {} [outline {outline_label}] ({}/{})",
+                scenario.name,
+                params.state.current_scenario + 1,
+                SCENARIOS.len()
+            );
+
+            let (camera_transform, projection) = params.camera_query.single().unwrap();
+            let window = params.windows.single().unwrap();
+            let viewport = compute_viewport_info(camera_transform, projection, window);
+
+            spawn_scenario(
+                &mut params.commands,
+                &mut params.meshes,
+                &mut params.materials,
+                scenario,
+                &viewport,
+                params.state.outline_enabled,
+                params.state.outline_mode,
+            );
+
+            params.state.frame_counter = 0;
+            params.state.frame_times.clear();
+            params.state.phase = BenchmarkPhase::Warmup;
+        },
+        BenchmarkPhase::Warmup => {
+            params.state.frame_counter += 1;
+            if params.state.frame_counter >= WARMUP_FRAMES {
+                params.state.frame_counter = 0;
+                params.state.phase = BenchmarkPhase::Measure;
+            }
+        },
+        BenchmarkPhase::Measure => {
+            let frame_time_ms = params.time.delta_secs_f64() * MS_PER_SECOND;
+            params.state.frame_times.push(frame_time_ms);
+            params.state.frame_counter += 1;
+
+            if params.state.frame_counter >= MEASURE_FRAMES {
+                params.state.phase = BenchmarkPhase::Analyze;
+            }
+        },
+        BenchmarkPhase::Analyze => {
+            let result_name = params.state.result_name();
+            let result = compute_statistics(&result_name, &mut params.state.frame_times);
+            info!(
+                "  {} — avg: {:.2}ms, median: {:.2}ms, p95: {:.2}ms, ~{:.0} FPS",
+                result.name,
+                result.avg_ms,
+                result.median_ms,
+                result.p95_ms,
+                result.avg_fps()
+            );
+            if let Some(existing) = params
+                .state
+                .results
+                .iter_mut()
+                .find(|r| r.name == result.name)
+            {
+                *existing = result;
+            } else {
+                params.state.results.push(result);
+            }
+
+            if !params.state.outline_enabled {
+                // Just finished "off" run — now do "on" for the same scenario
+                params.state.outline_enabled = true;
+                params.state.phase = BenchmarkPhase::Setup;
+            } else if params.state.mode == BenchmarkMode::Auto
+                && params.state.current_scenario + 1 < SCENARIOS.len()
+            {
+                // Finished "on" run in auto mode — advance to next scenario
+                params.state.outline_enabled = false;
+                params.state.current_scenario += 1;
+                params.state.phase = BenchmarkPhase::Setup;
+            } else if params.state.mode == BenchmarkMode::Auto {
+                // Finished last scenario in auto mode
+                params.state.outline_enabled = false;
+                write_results(&params.state.results);
+                params.state.mode = BenchmarkMode::Interactive;
+                params.state.phase = BenchmarkPhase::Idle;
+            } else {
+                // Finished "on" run in interactive mode
+                params.state.outline_enabled = false;
+                params.state.phase = BenchmarkPhase::Idle;
+            }
+        },
+    }
+}
+
+// --- Input Handling ---
+
+fn handle_input(input: Res<ButtonInput<KeyCode>>, mut state: ResMut<BenchmarkState>) {
+    // Log results
+    if input.just_pressed(KeyCode::KeyL) && !state.results.is_empty() {
+        write_results(&state.results);
+        return;
+    }
+
+    // Start an auto benchmark run
+    if input.just_pressed(KeyCode::KeyR) {
+        info!("Starting auto benchmark run");
+        state.mode = BenchmarkMode::Auto;
+        state.current_scenario = 0;
+        state.outline_enabled = false;
+        state.results.clear();
+        state.phase = BenchmarkPhase::Setup;
+        return;
+    }
+
+    // Cycle outline mode
+    if input.just_pressed(KeyCode::KeyM) {
+        let new_mode = next_outline_mode(state.outline_mode);
+        info!("Outline mode: {}", outline_mode_label(new_mode));
+        state.outline_mode = new_mode;
+        state.mode = BenchmarkMode::Interactive;
+        state.outline_enabled = false;
+        state.phase = BenchmarkPhase::Setup;
+        return;
+    }
+
+    // Scenario switching — switches to interactive mode if in auto
+    for (idx, scenario) in SCENARIOS.iter().enumerate() {
+        if input.just_pressed(scenario.key) {
+            info!("Switching to scenario: {}", scenario.name);
+            state.mode = BenchmarkMode::Interactive;
+            state.current_scenario = idx;
+            state.outline_enabled = false;
+            state.phase = BenchmarkPhase::Setup;
+            return;
+        }
+    }
+}
+
+// --- HUD ---
+
+const fn key_to_char(key: KeyCode) -> char {
+    match key {
+        KeyCode::Digit0 => '0',
+        KeyCode::Digit1 => '1',
+        KeyCode::Digit2 => '2',
+        KeyCode::Digit3 => '3',
+        KeyCode::Digit4 => '4',
+        KeyCode::Digit5 => '5',
+        KeyCode::Digit6 => '6',
+        KeyCode::Digit7 => '7',
+        KeyCode::Digit8 => '8',
+        KeyCode::Digit9 => '9',
+        _ => '?',
+    }
+}
+
+fn update_hud(
+    state: Res<BenchmarkState>,
+    diagnostics: Res<DiagnosticsStore>,
+    mut text: Single<&mut Text, With<HudText>>,
+    time: Res<Time>,
+    mut hud_timer: ResMut<HudUpdateTimer>,
+) {
+    if !hud_timer.0.tick(time.delta()).just_finished() {
+        return;
+    }
+    let scenario = &SCENARIOS[state.current_scenario];
+    let mode_label = match state.mode {
+        BenchmarkMode::Auto => "Auto",
+        BenchmarkMode::Interactive => "Interactive",
+    };
+
+    let live_fps = diagnostics
+        .get(&FrameTimeDiagnosticsPlugin::FPS)
+        .and_then(|d| d.smoothed())
+        .unwrap_or(0.0);
+
+    let live_frame_time = diagnostics
+        .get(&FrameTimeDiagnosticsPlugin::FRAME_TIME)
+        .and_then(|d| d.smoothed())
+        .unwrap_or(0.0);
+
+    let phase_info = match state.phase {
+        BenchmarkPhase::Idle => "Idle".to_string(),
+        BenchmarkPhase::Setup => "Setting up...".to_string(),
+        BenchmarkPhase::Warmup => {
+            format!("Warmup {}/{WARMUP_FRAMES}", state.frame_counter)
+        },
+        BenchmarkPhase::Measure => {
+            format!("Measuring {}/{MEASURE_FRAMES}", state.frame_counter)
+        },
+        BenchmarkPhase::Analyze => "Analyzing...".to_string(),
+    };
+
+    let progress = if state.mode == BenchmarkMode::Auto {
+        format!(" ({}/{})", state.current_scenario + 1, SCENARIOS.len())
+    } else {
+        String::new()
+    };
+
+    // Find the widest label (including key prefix "N Name off/on:") across all rows
+    let mut max_label_len = "Bench:".len();
+    for s in SCENARIOS {
+        // "N " prefix + name + " on:" (longest suffix)
+        max_label_len = max_label_len.max(s.name.len() + 6);
+    }
+    // +1 for the space after the label
+    let col = max_label_len + 1;
+
+    let bench_stats = if !state.frame_times.is_empty() {
+        let sum: f64 = state.frame_times.iter().sum();
+        let avg_ms = sum / state.frame_times.len() as f64;
+        let avg_fps = MS_PER_SECOND / avg_ms;
+        format!(
+            "\n{:<col$}FPS: {avg_fps:<4.0}  Frame: {avg_ms:.2}ms",
+            "Bench:",
+        )
+    } else {
+        String::new()
+    };
+
+    let outline_mode_name = outline_mode_label(state.outline_mode);
+    let mut hud = format!(
+        "[{mode_label}] {}{progress}  Mode: {outline_mode_name}\n{phase_info}\n\n{:<col$}FPS: {live_fps:<4.0}  Frame: {live_frame_time:.2}ms{bench_stats}",
+        scenario.name, "Bevy:",
+    );
+
+    hud.push_str("\n\n--- Results ---");
+    for s in SCENARIOS {
+        let key_char = key_to_char(s.key);
+        for (i, suffix) in ["off", "on"].iter().enumerate() {
+            let result_name = format!("{} {suffix} ({outline_mode_name})", s.name);
+            let label = if i == 0 {
+                format!("{key_char} {result_name}:")
+            } else {
+                format!("  {result_name}:")
+            };
+            if let Some(r) = state.results.iter().find(|r| r.name == result_name) {
+                let _ = write!(
+                    hud,
+                    "\n{label:<col$}FPS: {:<4.0}  Frame: {:.2}ms  med: {:.2}ms  p95: {:.2}ms",
+                    r.avg_fps(),
+                    r.avg_ms,
+                    r.median_ms,
+                    r.p95_ms,
+                );
+            } else {
+                let _ = write!(hud, "\n{label:<col$}---");
+            }
+        }
+    }
+
+    hud.push_str("\n\n#: Switch scenario  M: Cycle mode  R: Auto run  L: Log results");
+
+    text.0 = hud;
+}
+
+// --- Statistics ---
+
+fn compute_statistics(name: &str, frame_times: &mut [f64]) -> ScenarioResult {
+    frame_times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+    let len = frame_times.len();
+    let sum: f64 = frame_times.iter().sum();
+    let avg_ms = sum / len as f64;
+    let median_ms = percentile(frame_times, 50.0);
+    let p95_ms = percentile(frame_times, 95.0);
+    let p99_ms = percentile(frame_times, 99.0);
+    let min_ms = frame_times.first().copied().unwrap_or(0.0);
+    let max_ms = frame_times.last().copied().unwrap_or(0.0);
+
+    ScenarioResult {
+        name: (*name).to_string(),
+        frames: len as u32,
+        avg_ms,
+        median_ms,
+        p95_ms,
+        p99_ms,
+        min_ms,
+        max_ms,
+    }
+}
+
+fn percentile(sorted: &[f64], pct: f64) -> f64 {
+    if sorted.is_empty() {
+        return 0.0;
+    }
+    let idx = (pct / 100.0 * (sorted.len() - 1) as f64).round() as usize;
+    sorted[idx.min(sorted.len() - 1)]
+}
+
+// --- Results Output ---
+
+fn write_results(results: &[ScenarioResult]) {
+    let mut table = String::new();
+    let _ = writeln!(table, "\n=== bevy_liminal Benchmark Results ===\n");
+    let _ = writeln!(
+        table,
+        "{:<18}| {:>6} | {:>8} | {:>8} | {:>8} | {:>8} | {:>8} | {:>8} | {:>6}",
+        "Scenario",
+        "Frames",
+        "Avg(ms)",
+        "Med(ms)",
+        "P95(ms)",
+        "P99(ms)",
+        "Min(ms)",
+        "Max(ms)",
+        "~FPS"
+    );
+    let _ = writeln!(
+        table,
+        "{:-<18}|{:->8}|{:->10}|{:->10}|{:->10}|{:->10}|{:->10}|{:->10}|{:->8}",
+        "", "", "", "", "", "", "", "", ""
+    );
+
+    for r in results {
+        let _ = writeln!(
+            table,
+            "{:<18}| {:>6} | {:>8.2} | {:>8.2} | {:>8.2} | {:>8.2} | {:>8.2} | {:>8.2} | {:>6.0}",
+            r.name,
+            r.frames,
+            r.avg_ms,
+            r.median_ms,
+            r.p95_ms,
+            r.p99_ms,
+            r.min_ms,
+            r.max_ms,
+            r.avg_fps()
+        );
+    }
+
+    info!("{table}");
+}
