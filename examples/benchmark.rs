@@ -590,7 +590,7 @@ fn benchmark_tick(mut params: BenchmarkTickParams<'_, '_>) {
 
             let (camera_transform, projection) = params.camera_query.single().unwrap();
             let window = params.windows.single().unwrap();
-            let viewport = compute_viewport_info(camera_transform, projection, &window);
+            let viewport = compute_viewport_info(camera_transform, projection, window);
 
             spawn_scenario(
                 &mut params.commands,
