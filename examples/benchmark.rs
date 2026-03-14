@@ -1,5 +1,7 @@
 use std::env;
 use std::fmt::Write as FmtWrite;
+use std::fs::File;
+use std::io::Write as IoWrite;
 
 use bevy::color::palettes::css::DARK_SEA_GREEN;
 use bevy::color::palettes::css::YELLOW;
@@ -56,7 +58,9 @@ fn main() {
 // --- Constants ---
 
 const AMBIENT_LIGHT_BRIGHTNESS: f32 = 200.0;
+const AUTO_EXIT_DELAY_SECS: f32 = 2.0;
 const AUTO_MODE_ENV_VAR: &str = "BENCHMARK_AUTO";
+const AUTO_STARTUP_DELAY_SECS: f32 = 5.0;
 const CAMERA_LOOK_AT: Vec3 = Vec3::new(0.0, 4.0, 0.0);
 const CAMERA_POSITION: Vec3 = Vec3::new(8.0, 2.0, 14.0);
 const CUBE_FILL_RATIO_5: f32 = 0.45;
@@ -175,10 +179,12 @@ enum BenchmarkMode {
 
 enum BenchmarkPhase {
     Idle,
+    StartupDelay,
     Setup,
     Warmup,
     Measure,
     Analyze,
+    ExitDelay,
 }
 
 struct ScenarioResult {
@@ -212,12 +218,16 @@ struct BenchmarkState {
     frame_counter:    u32,
     frame_times:      Vec<f64>,
     results:          Vec<ScenarioResult>,
+    startup_timer:    Timer,
+    exit_timer:       Timer,
+    exit_on_complete: bool,
 }
 
 impl BenchmarkState {
     fn new() -> Self {
-        let (mode, phase) = if env::var(AUTO_MODE_ENV_VAR).is_ok_and(|v| v == "1") {
-            (BenchmarkMode::Auto, BenchmarkPhase::Setup)
+        let exit_on_complete = env::var(AUTO_MODE_ENV_VAR).is_ok_and(|v| v == "1");
+        let (mode, phase) = if exit_on_complete {
+            (BenchmarkMode::Auto, BenchmarkPhase::StartupDelay)
         } else {
             (BenchmarkMode::Interactive, BenchmarkPhase::Idle)
         };
@@ -231,6 +241,9 @@ impl BenchmarkState {
             frame_counter: 0,
             frame_times: Vec::with_capacity(MEASURE_FRAMES as usize),
             results: Vec::with_capacity(SCENARIOS.len() * 2),
+            startup_timer: Timer::from_seconds(AUTO_STARTUP_DELAY_SECS, TimerMode::Once),
+            exit_timer: Timer::from_seconds(AUTO_EXIT_DELAY_SECS, TimerMode::Once),
+            exit_on_complete,
         }
     }
 
@@ -265,9 +278,6 @@ struct BenchmarkEntity;
 
 #[derive(Component)]
 struct HudText;
-
-#[derive(Component)]
-struct ExperimentLabel;
 
 #[derive(Resource)]
 struct HudUpdateTimer(Timer);
@@ -327,22 +337,6 @@ fn setup_benchmark(
             ..default()
         },
         HudText,
-    ));
-
-    commands.spawn((
-        Text::new("experiment"),
-        TextFont {
-            font_size: HUD_FONT_SIZE,
-            ..default()
-        },
-        TextColor(Color::WHITE),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(HUD_PADDING),
-            right: Val::Px(HUD_PADDING),
-            ..default()
-        },
-        ExperimentLabel,
     ));
 }
 
@@ -523,11 +517,7 @@ fn spawn_grid(
                     BenchmarkEntity,
                 ));
                 if outline_enabled {
-                    entity.insert(
-                        MeshOutline::new(width)
-                            .with_intensity(DEFAULT_OUTLINE_INTENSITY)
-                            .with_color(random_outline_color()),
-                    );
+                    entity.insert(build_outline(width, outline_mode));
                 }
                 spawned += 1;
             }
@@ -555,12 +545,27 @@ struct BenchmarkTickParams<'w, 's> {
     time:               Res<'w, Time<Real>>,
     benchmark_entities: Query<'w, 's, Entity, With<BenchmarkEntity>>,
     camera_query:       Query<'w, 's, (&'static Transform, &'static Projection), With<Camera3d>>,
-    windows:            Query<'w, 's, &'static Window>,
+    windows:            Query<'w, 's, &'static mut Window>,
 }
 
 fn benchmark_tick(mut params: BenchmarkTickParams<'_, '_>) {
     match params.state.phase {
         BenchmarkPhase::Idle => {},
+        BenchmarkPhase::StartupDelay => {
+            if params.state.startup_timer.elapsed_secs() == 0.0
+                && let Ok(mut window) = params.windows.single_mut()
+            {
+                window.focused = true;
+                info!(
+                    "Auto mode: focusing window, waiting {AUTO_STARTUP_DELAY_SECS}s before starting"
+                );
+            }
+            params.state.startup_timer.tick(params.time.delta());
+            if params.state.startup_timer.just_finished() {
+                info!("Startup delay complete, beginning auto benchmark");
+                params.state.phase = BenchmarkPhase::Setup;
+            }
+        },
         BenchmarkPhase::Setup => {
             // Despawn previous scenario entities
             for entity in &params.benchmark_entities {
@@ -585,7 +590,7 @@ fn benchmark_tick(mut params: BenchmarkTickParams<'_, '_>) {
 
             let (camera_transform, projection) = params.camera_query.single().unwrap();
             let window = params.windows.single().unwrap();
-            let viewport = compute_viewport_info(camera_transform, projection, window);
+            let viewport = compute_viewport_info(camera_transform, projection, &window);
 
             spawn_scenario(
                 &mut params.commands,
@@ -654,12 +659,25 @@ fn benchmark_tick(mut params: BenchmarkTickParams<'_, '_>) {
                 // Finished last scenario in auto mode
                 params.state.outline_enabled = false;
                 write_results(&params.state.results);
-                params.state.mode = BenchmarkMode::Interactive;
-                params.state.phase = BenchmarkPhase::Idle;
+                if params.state.exit_on_complete {
+                    info!("Auto benchmark complete, exiting in {AUTO_EXIT_DELAY_SECS}s");
+                    params.state.phase = BenchmarkPhase::ExitDelay;
+                } else {
+                    info!("Auto benchmark complete");
+                    params.state.mode = BenchmarkMode::Interactive;
+                    params.state.phase = BenchmarkPhase::Idle;
+                }
             } else {
                 // Finished "on" run in interactive mode
                 params.state.outline_enabled = false;
                 params.state.phase = BenchmarkPhase::Idle;
+            }
+        },
+        BenchmarkPhase::ExitDelay => {
+            params.state.exit_timer.tick(params.time.delta());
+            if params.state.exit_timer.just_finished() {
+                info!("Exiting");
+                std::process::exit(0);
             }
         },
     }
@@ -755,6 +773,10 @@ fn update_hud(
 
     let phase_info = match state.phase {
         BenchmarkPhase::Idle => "Idle".to_string(),
+        BenchmarkPhase::StartupDelay => {
+            let remaining = AUTO_STARTUP_DELAY_SECS - state.startup_timer.elapsed_secs();
+            format!("Starting in {remaining:.0}s...")
+        },
         BenchmarkPhase::Setup => "Setting up...".to_string(),
         BenchmarkPhase::Warmup => {
             format!("Warmup {}/{WARMUP_FRAMES}", state.frame_counter)
@@ -763,6 +785,10 @@ fn update_hud(
             format!("Measuring {}/{MEASURE_FRAMES}", state.frame_counter)
         },
         BenchmarkPhase::Analyze => "Analyzing...".to_string(),
+        BenchmarkPhase::ExitDelay => {
+            let remaining = AUTO_EXIT_DELAY_SECS - state.exit_timer.elapsed_secs();
+            format!("Exiting in {remaining:.0}s...")
+        },
     };
 
     let progress = if state.mode == BenchmarkMode::Auto {
@@ -903,4 +929,55 @@ fn write_results(results: &[ScenarioResult]) {
     }
 
     info!("{table}");
+
+    // Write CSV
+    match write_csv(results) {
+        Ok(path) => info!("CSV written to: {path}"),
+        Err(e) => warn!("Failed to write CSV: {e}"),
+    }
+}
+
+fn format_timestamp() -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
+    let output = std::process::Command::new("date")
+        .args(["-r", &now.to_string(), "+%Y_%m_%d_%H_%M"])
+        .output();
+
+    match output {
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).trim().to_string(),
+        _ => format!("{now}"),
+    }
+}
+
+fn write_csv(results: &[ScenarioResult]) -> Result<String, std::io::Error> {
+    let results_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("results");
+    std::fs::create_dir_all(&results_dir)?;
+
+    let timestamp = format_timestamp();
+    let path = results_dir.join(format!("benchmark_{timestamp}.csv"));
+    let mut file = File::create(&path)?;
+    writeln!(
+        file,
+        "scenario,frames,avg_ms,median_ms,p95_ms,p99_ms,min_ms,max_ms,avg_fps"
+    )?;
+    for r in results {
+        writeln!(
+            file,
+            "{},{},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.0}",
+            r.name,
+            r.frames,
+            r.avg_ms,
+            r.median_ms,
+            r.p95_ms,
+            r.p99_ms,
+            r.min_ms,
+            r.max_ms,
+            r.avg_fps()
+        )?;
+    }
+    Ok(path.display().to_string())
 }
