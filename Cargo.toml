@@ -43,9 +43,9 @@ bevy = { version = "0.18.1", features = [
   "bevy_post_process",
   "scene",
 ] }
-bevy_brp_extras      = "0.18.7"
+bevy_brp_extras = "0.18.7"
 bevy_panorbit_camera = "0.34.0"
-bevy_window_manager  = "0.18.3"
+bevy_window_manager = "0.18.3"
 
 
 [[example]]
