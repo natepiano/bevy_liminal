@@ -195,6 +195,30 @@ fn update_active_outline_modes(
     active.has_hull = extracted_outlines.has_hull;
 }
 
+/// Marker component that prevents outline propagation to this entity.
+///
+/// When a parent entity has an outline that propagates to descendant `Mesh3d` entities,
+/// any descendant with `NoOutline` will be skipped. This is useful for invisible helper
+/// meshes (e.g. backside pick planes with `AlphaMode::Blend`) that should never receive
+/// an outline, even when their ancestor is outlined.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// # use bevy::prelude::*;
+/// # use bevy_liminal::NoOutline;
+/// // Invisible pick plane that should not receive outline propagation
+/// commands.spawn((
+///     Name::new("Backside Pick Plane"),
+///     Mesh3d(mesh),
+///     MeshMaterial3d(transparent_material),
+///     NoOutline,
+/// ));
+/// ```
+#[derive(Debug, Component, Reflect, Clone, Copy, Default)]
+#[reflect(Component)]
+pub struct NoOutline;
+
 pub struct MeshOutlinePlugin;
 
 impl Plugin for MeshOutlinePlugin {
