@@ -3,8 +3,8 @@ use bevy::color::palettes::css::RED;
 use bevy::color::palettes::css::SILVER;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
+use bevy_liminal::LiminalPlugin;
 use bevy_liminal::MeshOutline;
-use bevy_liminal::MeshOutlinePlugin;
 use bevy_liminal::OutlineCamera;
 use bevy_render::view::Hdr;
 
@@ -12,7 +12,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
-            MeshOutlinePlugin,
+            LiminalPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(FixedUpdate, (rotate, oscillate_intensity))

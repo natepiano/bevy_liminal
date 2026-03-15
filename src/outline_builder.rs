@@ -3,11 +3,11 @@ use std::marker::PhantomData;
 use bevy::prelude::Color;
 
 use crate::MeshOutline;
-use crate::OutlineMode;
+use crate::OutlineMethod;
 use crate::OverlapMode;
 
 pub trait OutlineModeState: private::Sealed {
-    const MODE: OutlineMode;
+    const MODE: OutlineMethod;
 }
 
 pub trait HullModeState: OutlineModeState {}
@@ -22,22 +22,22 @@ pub struct WorldHullState;
 pub struct ScreenHullState;
 
 impl OutlineModeState for JumpFloodState {
-    const MODE: OutlineMode = OutlineMode::JumpFlood;
+    const MODE: OutlineMethod = OutlineMethod::JumpFlood;
 }
 
 impl OutlineModeState for WorldHullState {
-    const MODE: OutlineMode = OutlineMode::WorldHull;
+    const MODE: OutlineMethod = OutlineMethod::WorldHull;
 }
 
 impl OutlineModeState for ScreenHullState {
-    const MODE: OutlineMode = OutlineMode::ScreenHull;
+    const MODE: OutlineMethod = OutlineMethod::ScreenHull;
 }
 
 impl HullModeState for WorldHullState {}
 impl HullModeState for ScreenHullState {}
 
 #[derive(Debug, Clone)]
-pub struct MeshOutlineBuilder<M: OutlineModeState> {
+pub struct OutlineBuilder<M: OutlineModeState> {
     width:     f32,
     intensity: f32,
     color:     Color,
@@ -46,7 +46,7 @@ pub struct MeshOutlineBuilder<M: OutlineModeState> {
     _mode:     PhantomData<M>,
 }
 
-impl MeshOutlineBuilder<JumpFloodState> {
+impl OutlineBuilder<JumpFloodState> {
     pub(crate) fn jump_flood(width: f32) -> Self {
         Self {
             intensity: 1.0,
@@ -63,8 +63,8 @@ impl MeshOutlineBuilder<JumpFloodState> {
         self
     }
 
-    pub fn to_world_hull(self) -> MeshOutlineBuilder<WorldHullState> {
-        MeshOutlineBuilder {
+    pub fn to_world_hull(self) -> OutlineBuilder<WorldHullState> {
+        OutlineBuilder {
             width:     self.width,
             intensity: self.intensity,
             color:     self.color,
@@ -75,8 +75,8 @@ impl MeshOutlineBuilder<JumpFloodState> {
         }
     }
 
-    pub fn to_screen_hull(self) -> MeshOutlineBuilder<ScreenHullState> {
-        MeshOutlineBuilder {
+    pub fn to_screen_hull(self) -> OutlineBuilder<ScreenHullState> {
+        OutlineBuilder {
             width:     self.width,
             intensity: self.intensity,
             color:     self.color,
@@ -94,14 +94,14 @@ impl MeshOutlineBuilder<JumpFloodState> {
             priority:  self.priority,
             overlap:   OverlapMode::Merged,
             color:     self.color,
-            mode:      OutlineMode::JumpFlood,
+            mode:      OutlineMethod::JumpFlood,
         }
     }
 }
 
-impl MeshOutlineBuilder<WorldHullState> {
-    pub fn to_jump_flood(self) -> MeshOutlineBuilder<JumpFloodState> {
-        MeshOutlineBuilder {
+impl OutlineBuilder<WorldHullState> {
+    pub fn to_jump_flood(self) -> OutlineBuilder<JumpFloodState> {
+        OutlineBuilder {
             width:     self.width,
             intensity: self.intensity,
             color:     self.color,
@@ -112,8 +112,8 @@ impl MeshOutlineBuilder<WorldHullState> {
         }
     }
 
-    pub fn to_screen_hull(self) -> MeshOutlineBuilder<ScreenHullState> {
-        MeshOutlineBuilder {
+    pub fn to_screen_hull(self) -> OutlineBuilder<ScreenHullState> {
+        OutlineBuilder {
             width:     self.width,
             intensity: self.intensity,
             color:     self.color,
@@ -124,9 +124,9 @@ impl MeshOutlineBuilder<WorldHullState> {
     }
 }
 
-impl MeshOutlineBuilder<ScreenHullState> {
-    pub fn to_jump_flood(self) -> MeshOutlineBuilder<JumpFloodState> {
-        MeshOutlineBuilder {
+impl OutlineBuilder<ScreenHullState> {
+    pub fn to_jump_flood(self) -> OutlineBuilder<JumpFloodState> {
+        OutlineBuilder {
             width:     self.width,
             intensity: self.intensity,
             color:     self.color,
@@ -137,8 +137,8 @@ impl MeshOutlineBuilder<ScreenHullState> {
         }
     }
 
-    pub fn to_world_hull(self) -> MeshOutlineBuilder<WorldHullState> {
-        MeshOutlineBuilder {
+    pub fn to_world_hull(self) -> OutlineBuilder<WorldHullState> {
+        OutlineBuilder {
             width:     self.width,
             intensity: self.intensity,
             color:     self.color,
@@ -149,7 +149,7 @@ impl MeshOutlineBuilder<ScreenHullState> {
     }
 }
 
-impl<M: OutlineModeState> MeshOutlineBuilder<M> {
+impl<M: OutlineModeState> OutlineBuilder<M> {
     pub fn with_width(mut self, width: f32) -> Self {
         self.width = width;
         self
@@ -166,7 +166,7 @@ impl<M: OutlineModeState> MeshOutlineBuilder<M> {
     }
 }
 
-impl<M: HullModeState> MeshOutlineBuilder<M> {
+impl<M: HullModeState> OutlineBuilder<M> {
     pub fn with_overlap(mut self, overlap: OverlapMode) -> Self {
         self.overlap = overlap;
         self
@@ -184,18 +184,18 @@ impl<M: HullModeState> MeshOutlineBuilder<M> {
     }
 }
 
-impl<M: OutlineModeState> From<MeshOutlineBuilder<M>> for MeshOutline {
-    fn from(builder: MeshOutlineBuilder<M>) -> Self {
+impl<M: OutlineModeState> From<OutlineBuilder<M>> for MeshOutline {
+    fn from(builder: OutlineBuilder<M>) -> Self {
         match M::MODE {
-            OutlineMode::JumpFlood => MeshOutline {
+            OutlineMethod::JumpFlood => MeshOutline {
                 intensity: builder.intensity,
                 width:     builder.width,
                 priority:  builder.priority,
                 overlap:   OverlapMode::Merged,
                 color:     builder.color,
-                mode:      OutlineMode::JumpFlood,
+                mode:      OutlineMethod::JumpFlood,
             },
-            OutlineMode::WorldHull | OutlineMode::ScreenHull => MeshOutline {
+            OutlineMethod::WorldHull | OutlineMethod::ScreenHull => MeshOutline {
                 intensity: builder.intensity,
                 width:     builder.width,
                 priority:  0.0,
@@ -220,7 +220,7 @@ mod tests {
     use bevy::prelude::Color;
 
     use crate::MeshOutline;
-    use crate::OutlineMode;
+    use crate::OutlineMethod;
     use crate::OverlapMode;
 
     #[test]
@@ -235,7 +235,7 @@ mod tests {
             .with_color(Color::srgb(1.0, 0.0, 0.0))
             .build();
 
-        assert_eq!(outline.mode, OutlineMode::ScreenHull);
+        assert_eq!(outline.mode, OutlineMethod::ScreenHull);
         assert_eq!(outline.width, 4.0);
         assert_eq!(outline.intensity, 2.0);
         assert_eq!(outline.priority, 0.0);
@@ -250,7 +250,7 @@ mod tests {
             .to_screen_hull()
             .build();
 
-        assert_eq!(outline.mode, OutlineMode::ScreenHull);
+        assert_eq!(outline.mode, OutlineMethod::ScreenHull);
         assert_eq!(outline.overlap, OverlapMode::Individual);
         assert_eq!(outline.priority, 0.0);
     }
@@ -258,7 +258,7 @@ mod tests {
     #[test]
     fn priority_survives_in_jump_flood_only() {
         let jump_outline = MeshOutline::builder(2.0).with_priority(7.0).build();
-        assert_eq!(jump_outline.mode, OutlineMode::JumpFlood);
+        assert_eq!(jump_outline.mode, OutlineMethod::JumpFlood);
         assert_eq!(jump_outline.priority, 7.0);
         assert_eq!(jump_outline.overlap, OverlapMode::Merged);
 
@@ -267,7 +267,7 @@ mod tests {
             .to_world_hull()
             .to_jump_flood()
             .build();
-        assert_eq!(switched_outline.mode, OutlineMode::JumpFlood);
+        assert_eq!(switched_outline.mode, OutlineMethod::JumpFlood);
         assert_eq!(switched_outline.priority, 0.0);
         assert_eq!(switched_outline.overlap, OverlapMode::Merged);
     }
@@ -276,9 +276,9 @@ mod tests {
     fn legacy_new_api_still_works() {
         let outline = MeshOutline::new(5.0)
             .with_priority(3.0)
-            .with_mode(OutlineMode::WorldHull);
+            .with_mode(OutlineMethod::WorldHull);
 
-        assert_eq!(outline.mode, OutlineMode::WorldHull);
+        assert_eq!(outline.mode, OutlineMethod::WorldHull);
         assert_eq!(outline.width, 5.0);
         assert_eq!(outline.priority, 3.0);
         assert_eq!(outline.overlap, OverlapMode::Merged);

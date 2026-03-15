@@ -7,8 +7,8 @@ use std::f32::consts::PI;
 use bevy::light::CascadeShadowConfigBuilder;
 use bevy::prelude::*;
 use bevy::scene::SceneInstanceReady;
+use bevy_liminal::LiminalPlugin;
 use bevy_liminal::MeshOutline;
-use bevy_liminal::MeshOutlinePlugin;
 use bevy_liminal::OutlineCamera;
 
 const GLTF_PATH: &str = "Fox.glb";
@@ -16,7 +16,7 @@ const GLTF_PATH: &str = "Fox.glb";
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(MeshOutlinePlugin)
+        .add_plugins(LiminalPlugin)
         .add_systems(Startup, setup_fox)
         .add_systems(Startup, setup_camera_and_environment)
         .run();

@@ -8,15 +8,15 @@ use bevy::color::palettes::css::YELLOW;
 use bevy::core_pipeline::prepass::DepthPrepass;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
+use bevy_liminal::LiminalPlugin;
 use bevy_liminal::MeshOutline;
-use bevy_liminal::MeshOutlinePlugin;
 use bevy_liminal::OutlineCamera;
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
-            MeshOutlinePlugin,
+            LiminalPlugin,
         ))
         .init_resource::<PriorityToggle>()
         .add_systems(Startup, (setup, setup_ui))

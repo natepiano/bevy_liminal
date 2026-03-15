@@ -5,8 +5,8 @@ use bevy::pbr::MeshPipelineKey;
 use bevy::pbr::RenderMeshInstances;
 use bevy::prelude::*;
 use bevy_render::batching::gpu_preprocessing::GpuPreprocessingSupport;
-use bevy_render::mesh::RenderMesh;
 use bevy_render::mesh::allocator::MeshAllocator;
+use bevy_render::mesh::RenderMesh;
 use bevy_render::render_asset::RenderAssets;
 use bevy_render::render_phase::BinnedRenderPhaseType;
 use bevy_render::render_phase::DrawFunctions;
@@ -16,6 +16,10 @@ use bevy_render::render_resource::SpecializedMeshPipelines;
 use bevy_render::view::ExtractedView;
 use bevy_render::view::RenderVisibleEntities;
 
+use super::hull_pipeline::HullPipeline;
+use super::hull_pipeline::HullPipelineKey;
+use super::mask_pipeline::MaskPipelineKey;
+use super::mask_pipeline::MeshMaskPipeline;
 use super::ActiveOutlineModes;
 use super::DrawHull;
 use super::DrawOutline;
@@ -23,11 +27,7 @@ use super::ExtractedOutlineUniforms;
 use super::HullOutline3d;
 use super::MeshOutline3d;
 use super::OutlineCamera;
-use super::OutlineMode;
-use super::hull_pipeline::HullPipeline;
-use super::hull_pipeline::HullPipelineKey;
-use super::mask_pipeline::MaskPipelineKey;
-use super::mask_pipeline::MeshMaskPipeline;
+use super::OutlineMethod;
 use crate::mask::OutlineBatchSetKey;
 use crate::mask::OutlineBinKey;
 
@@ -191,7 +191,8 @@ pub fn queue_hull_outline(
             let Some(outline) = extracted_outlines.by_main_entity.get(&main_entity) else {
                 continue;
             };
-            if outline.mode != OutlineMode::WorldHull && outline.mode != OutlineMode::ScreenHull {
+            if outline.mode != OutlineMethod::WorldHull && outline.mode != OutlineMethod::ScreenHull
+            {
                 continue;
             }
 

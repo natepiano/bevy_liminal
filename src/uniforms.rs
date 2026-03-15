@@ -6,7 +6,7 @@ use bytemuck::Pod;
 use bytemuck::Zeroable;
 
 use super::ExtractedOutline;
-use super::OutlineMode;
+use super::OutlineMethod;
 
 #[derive(Debug, Clone, ShaderType, Pod, Zeroable, Copy)]
 #[repr(C)]
@@ -22,7 +22,7 @@ pub struct OutlineUniform {
 impl From<&ExtractedOutline> for OutlineUniform {
     fn from(outline: &ExtractedOutline) -> Self {
         let shell_mode = match outline.mode {
-            OutlineMode::ScreenHull => 1.0,
+            OutlineMethod::ScreenHull => 1.0,
             _ => 0.0,
         };
         OutlineUniform {

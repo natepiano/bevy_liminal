@@ -15,17 +15,12 @@ mod view;
 use bevy::core_pipeline::core_3d::graph::Core3d;
 use bevy::core_pipeline::core_3d::graph::Node3d;
 use bevy::core_pipeline::prepass::DepthPrepass;
+use bevy::pbr::extract_skins;
 use bevy::pbr::DrawMesh;
 use bevy::pbr::SetMeshBindGroup;
 use bevy::pbr::SetMeshViewBindGroup;
 use bevy::pbr::SetMeshViewBindingArrayBindGroup;
-use bevy::pbr::extract_skins;
 use bevy::prelude::*;
-use bevy_render::Extract;
-use bevy_render::Render;
-use bevy_render::RenderApp;
-use bevy_render::RenderDebugFlags;
-use bevy_render::RenderSystems;
 use bevy_render::extract_component::ExtractComponent;
 use bevy_render::extract_component::ExtractComponentPlugin;
 use bevy_render::render_graph::RenderGraphExt;
@@ -42,20 +37,30 @@ use bevy_render::render_resource::TextureUsages;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::sync_world::MainEntityHashMap;
+use bevy_render::Extract;
+use bevy_render::Render;
+use bevy_render::RenderApp;
+use bevy_render::RenderDebugFlags;
+use bevy_render::RenderSystems;
 use compose::ComposeOutputPipeline;
-use flood::JumpFloodPipeline;
 use flood::prepare_flood_settings;
+use flood::JumpFloodPipeline;
 use hull_pipeline::HullPipeline;
 use mask::HullOutline3d;
 use mask::MeshOutline3d;
 use mask_pipeline::MeshMaskPipeline;
 use node::MeshOutlineNode;
 pub use outline_builder::JumpFloodState;
-pub use outline_builder::MeshOutlineBuilder;
+pub use outline_builder::OutlineBuilder;
 pub use outline_builder::ScreenHullState;
 pub use outline_builder::WorldHullState;
 use queue::queue_hull_outline;
 use queue::queue_outline;
+use render::prepare_hull_depth_view_bind_groups;
+use render::prepare_hull_outline_bind_group;
+use render::prepare_hull_outline_buffer;
+use render::prepare_outline_bind_group;
+use render::prepare_outline_buffer;
 use render::HullOutlineBindGroup;
 use render::HullOutlineUniformBuffer;
 use render::OutlineBindGroup;
@@ -63,11 +68,6 @@ use render::OutlineUniformBuffer;
 use render::SetHullDepthBindGroup;
 use render::SetHullOutlineBindGroup;
 use render::SetOutlineBindGroup;
-use render::prepare_hull_depth_view_bind_groups;
-use render::prepare_hull_outline_bind_group;
-use render::prepare_hull_outline_buffer;
-use render::prepare_outline_bind_group;
-use render::prepare_outline_buffer;
 use texture::prepare_flood_textures;
 use view::update_views;
 
@@ -129,7 +129,7 @@ impl ExtractedOutlineUniforms {
 
         for outline in self.by_main_entity.values() {
             match outline.mode {
-                OutlineMode::JumpFlood => {
+                OutlineMethod::JumpFlood => {
                     self.has_jfa = true;
                     self.max_jfa_width = self.max_jfa_width.max(outline.width);
                 },
@@ -141,10 +141,8 @@ impl ExtractedOutlineUniforms {
 
 fn extract_outline_uniforms(
     mut extracted_outlines: ResMut<ExtractedOutlineUniforms>,
-    added_or_changed_outlines: Extract<
-        Query<OutlineEntityAndMeshOutline, AddedOrChangedOutlineFilter>,
-    >,
-    added_mesh_outlines: Extract<Query<OutlineEntityAndMeshOutline, AddedMeshOutlineFilter>>,
+    added_or_changed_outlines: Extract<Query<OutlineEntityAndOutline, AddedOrChangedOutlineFilter>>,
+    added_mesh_outlines: Extract<Query<OutlineEntityAndOutline, AddedOutlineFilter>>,
     mut removed_outlines: Extract<RemovedComponents<MeshOutline>>,
     mut removed_meshes: Extract<RemovedComponents<Mesh3d>>,
 ) {
@@ -183,9 +181,9 @@ fn extract_outline_uniforms(
     }
 }
 
-type OutlineEntityAndMeshOutline = (Entity, &'static MeshOutline);
+type OutlineEntityAndOutline = (Entity, &'static MeshOutline);
 type AddedOrChangedOutlineFilter = (With<Mesh3d>, Or<(Added<MeshOutline>, Changed<MeshOutline>)>);
-type AddedMeshOutlineFilter = (Added<Mesh3d>, With<MeshOutline>);
+type AddedOutlineFilter = (Added<Mesh3d>, With<MeshOutline>);
 
 fn update_active_outline_modes(
     extracted_outlines: Res<ExtractedOutlineUniforms>,
@@ -219,15 +217,15 @@ fn update_active_outline_modes(
 #[reflect(Component)]
 pub struct NoOutline;
 
-pub struct MeshOutlinePlugin;
+pub struct LiminalPlugin;
 
-impl Plugin for MeshOutlinePlugin {
+impl Plugin for LiminalPlugin {
     fn build(&self, app: &mut App) {
         load_shaders(app);
 
         app.add_plugins((ExtractComponentPlugin::<OutlineCamera>::default(),));
         app.register_type::<MeshOutline>();
-        app.register_type::<OutlineMode>();
+        app.register_type::<OutlineMethod>();
         app.register_type::<OverlapMode>();
 
         // Ensure the main pass depth texture has TEXTURE_BINDING so the compose
@@ -282,13 +280,13 @@ impl Plugin for MeshOutlinePlugin {
             .add_render_command::<HullOutline3d, DrawHull>()
             .add_render_graph_node::<ViewNodeRunner<MeshOutlineNode>>(
                 Core3d,
-                OutlineNode::MeshOutlineNode,
+                OutlineRenderGraphNode::OutlineNode,
             )
             .add_render_graph_edges(
                 Core3d,
                 (
                     Node3d::EndMainPass,
-                    OutlineNode::MeshOutlineNode,
+                    OutlineRenderGraphNode::OutlineNode,
                     Node3d::Bloom,
                 ),
             );
@@ -331,7 +329,7 @@ pub struct MeshOutline {
     pub priority:  f32,
     pub overlap:   OverlapMode,
     pub color:     Color,
-    pub mode:      OutlineMode,
+    pub mode:      OutlineMethod,
 }
 
 impl MeshOutline {
@@ -342,12 +340,12 @@ impl MeshOutline {
             priority: 0.0,
             overlap: OverlapMode::Merged,
             color: Color::BLACK,
-            mode: OutlineMode::JumpFlood,
+            mode: OutlineMethod::JumpFlood,
         }
     }
 
-    pub fn builder(width: f32) -> MeshOutlineBuilder<JumpFloodState> {
-        MeshOutlineBuilder::jump_flood(width)
+    pub fn builder(width: f32) -> OutlineBuilder<JumpFloodState> {
+        OutlineBuilder::jump_flood(width)
     }
 
     pub fn with_intensity(self, intensity: f32) -> Self { Self { intensity, ..self } }
@@ -358,11 +356,11 @@ impl MeshOutline {
 
     pub fn with_overlap(self, overlap: OverlapMode) -> Self { Self { overlap, ..self } }
 
-    pub fn with_mode(self, mode: OutlineMode) -> Self { Self { mode, ..self } }
+    pub fn with_mode(self, mode: OutlineMethod) -> Self { Self { mode, ..self } }
 }
 
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq, Default)]
-pub enum OutlineMode {
+pub enum OutlineMethod {
     #[default]
     JumpFlood,
     WorldHull,
@@ -393,7 +391,7 @@ pub struct ExtractedOutline {
     pub overlap:   f32,
     pub owner_id:  f32,
     pub color:     Vec4,
-    pub mode:      OutlineMode,
+    pub mode:      OutlineMethod,
 }
 
 impl ExtractedOutline {
@@ -427,6 +425,6 @@ fn configure_outline_camera_depth_texture(mut cameras: Query<&mut Camera3d, With
 }
 
 #[derive(Copy, Clone, Debug, RenderLabel, Hash, PartialEq, Eq)]
-pub enum OutlineNode {
-    MeshOutlineNode,
+pub enum OutlineRenderGraphNode {
+    OutlineNode,
 }

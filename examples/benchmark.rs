@@ -14,9 +14,9 @@ use bevy::window::PresentMode;
 use bevy::winit::WinitSettings;
 use bevy_brp_extras::BrpExtrasPlugin;
 use bevy_liminal::MeshOutline;
-use bevy_liminal::MeshOutlinePlugin;
+use bevy_liminal::LiminalPlugin;
 use bevy_liminal::OutlineCamera;
-use bevy_liminal::OutlineMode;
+use bevy_liminal::OutlineMethod;
 use bevy_liminal::OverlapMode;
 use bevy_window_manager::WindowManagerPlugin;
 use rand::RngExt;
@@ -35,7 +35,7 @@ fn main() {
         }))
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(BrpExtrasPlugin::default())
-        .add_plugins(MeshOutlinePlugin)
+        .add_plugins(LiminalPlugin)
         .add_plugins(WindowManagerPlugin)
         .insert_resource(WinitSettings::continuous())
         .insert_resource(BenchmarkState::new())
@@ -213,7 +213,7 @@ struct BenchmarkState {
     mode:             BenchmarkMode,
     current_scenario: usize,
     outline_enabled:  bool,
-    outline_mode:     OutlineMode,
+    outline_mode:     OutlineMethod,
     phase:            BenchmarkPhase,
     frame_counter:    u32,
     frame_times:      Vec<f64>,
@@ -236,7 +236,7 @@ impl BenchmarkState {
             mode,
             current_scenario: 0,
             outline_enabled: false,
-            outline_mode: OutlineMode::default(),
+            outline_mode: OutlineMethod::default(),
             phase,
             frame_counter: 0,
             frame_times: Vec::with_capacity(MEASURE_FRAMES as usize),
@@ -255,19 +255,19 @@ impl BenchmarkState {
     }
 }
 
-const fn outline_mode_label(mode: OutlineMode) -> &'static str {
+const fn outline_mode_label(mode: OutlineMethod) -> &'static str {
     match mode {
-        OutlineMode::JumpFlood => "JumpFlood",
-        OutlineMode::WorldHull => "WorldHull",
-        OutlineMode::ScreenHull => "ScreenHull",
+        OutlineMethod::JumpFlood => "JumpFlood",
+        OutlineMethod::WorldHull => "WorldHull",
+        OutlineMethod::ScreenHull => "ScreenHull",
     }
 }
 
-const fn next_outline_mode(mode: OutlineMode) -> OutlineMode {
+const fn next_outline_mode(mode: OutlineMethod) -> OutlineMethod {
     match mode {
-        OutlineMode::JumpFlood => OutlineMode::WorldHull,
-        OutlineMode::WorldHull => OutlineMode::ScreenHull,
-        OutlineMode::ScreenHull => OutlineMode::JumpFlood,
+        OutlineMethod::JumpFlood => OutlineMethod::WorldHull,
+        OutlineMethod::WorldHull => OutlineMethod::ScreenHull,
+        OutlineMethod::ScreenHull => OutlineMethod::JumpFlood,
     }
 }
 
@@ -389,7 +389,7 @@ fn spawn_scenario(
     scenario: &ScenarioDefinition,
     viewport: &ViewportInfo,
     outline_enabled: bool,
-    outline_mode: OutlineMode,
+    outline_mode: OutlineMethod,
 ) {
     let ScenarioKind::Grid {
         count,
@@ -416,19 +416,19 @@ fn random_outline_color() -> Color {
     Color::srgb(rng.random(), rng.random(), rng.random())
 }
 
-fn build_outline(width: f32, outline_mode: OutlineMode) -> MeshOutline {
+fn build_outline(width: f32, outline_mode: OutlineMethod) -> MeshOutline {
     match outline_mode {
-        OutlineMode::JumpFlood => MeshOutline::builder(width)
+        OutlineMethod::JumpFlood => MeshOutline::builder(width)
             .with_intensity(DEFAULT_OUTLINE_INTENSITY)
             .with_color(random_outline_color())
             .build(),
-        OutlineMode::WorldHull => MeshOutline::builder(width)
+        OutlineMethod::WorldHull => MeshOutline::builder(width)
             .with_intensity(DEFAULT_OUTLINE_INTENSITY)
             .with_color(random_outline_color())
             .to_world_hull()
             .with_overlap(OverlapMode::Individual)
             .build(),
-        OutlineMode::ScreenHull => MeshOutline::builder(width)
+        OutlineMethod::ScreenHull => MeshOutline::builder(width)
             .with_intensity(DEFAULT_OUTLINE_INTENSITY)
             .with_color(random_outline_color())
             .to_screen_hull()
@@ -531,7 +531,7 @@ struct GridSpawnSpec<'a> {
     cube_fill:       f32,
     viewport:        &'a ViewportInfo,
     outline_enabled: bool,
-    outline_mode:    OutlineMode,
+    outline_mode:    OutlineMethod,
 }
 
 // --- Main Benchmark Tick ---

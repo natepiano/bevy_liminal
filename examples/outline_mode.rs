@@ -7,10 +7,10 @@ use bevy::color::palettes::css::SILVER;
 use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy_brp_extras::BrpExtrasPlugin;
+use bevy_liminal::LiminalPlugin;
 use bevy_liminal::MeshOutline;
-use bevy_liminal::MeshOutlinePlugin;
 use bevy_liminal::OutlineCamera;
-use bevy_liminal::OutlineMode;
+use bevy_liminal::OutlineMethod;
 use bevy_liminal::OverlapMode;
 use bevy_panorbit_camera::PanOrbitCamera;
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
@@ -37,7 +37,7 @@ fn main() {
                 }),
             BrpExtrasPlugin::default(),
             PanOrbitCameraPlugin,
-            MeshOutlinePlugin,
+            LiminalPlugin,
             WindowManagerPlugin,
         ))
         .init_resource::<PriorityToggle>()
@@ -71,13 +71,13 @@ struct PriorityToggle {
 
 #[derive(Resource)]
 struct OutlineModeToggle {
-    mode: OutlineMode,
+    mode: OutlineMethod,
 }
 
 impl Default for OutlineModeToggle {
     fn default() -> Self {
         Self {
-            mode: OutlineMode::WorldHull,
+            mode: OutlineMethod::WorldHull,
         }
     }
 }
@@ -263,15 +263,15 @@ fn toggle_outline_mode(
     }
 
     mode_toggle.mode = match mode_toggle.mode {
-        OutlineMode::JumpFlood => OutlineMode::WorldHull,
-        OutlineMode::WorldHull => OutlineMode::ScreenHull,
-        OutlineMode::ScreenHull => OutlineMode::JumpFlood,
+        OutlineMethod::JumpFlood => OutlineMethod::WorldHull,
+        OutlineMethod::WorldHull => OutlineMethod::ScreenHull,
+        OutlineMethod::ScreenHull => OutlineMethod::JumpFlood,
     };
 
     let (width, overlap) = match mode_toggle.mode {
-        OutlineMode::JumpFlood => (width_control.jump_flood_width_px, OverlapMode::Merged),
-        OutlineMode::WorldHull => (width_control.hull_width_world, overlap_control.hull_overlap),
-        OutlineMode::ScreenHull => (width_control.shell_width_px, overlap_control.shell_overlap),
+        OutlineMethod::JumpFlood => (width_control.jump_flood_width_px, OverlapMode::Merged),
+        OutlineMethod::WorldHull => (width_control.hull_width_world, overlap_control.hull_overlap),
+        OutlineMethod::ScreenHull => (width_control.shell_width_px, overlap_control.shell_overlap),
     };
 
     for mut outline in &mut outline_query {
@@ -282,7 +282,7 @@ fn toggle_outline_mode(
 
 fn rebuilt_outline_for_mode(
     current: &MeshOutline,
-    mode: OutlineMode,
+    mode: OutlineMethod,
     width: f32,
     overlap: OverlapMode,
     priority: f32,
@@ -292,9 +292,9 @@ fn rebuilt_outline_for_mode(
         .with_color(current.color);
 
     match mode {
-        OutlineMode::JumpFlood => base.with_priority(priority).build(),
-        OutlineMode::WorldHull => base.to_world_hull().with_overlap(overlap).build(),
-        OutlineMode::ScreenHull => base.to_screen_hull().with_overlap(overlap).build(),
+        OutlineMethod::JumpFlood => base.with_priority(priority).build(),
+        OutlineMethod::WorldHull => base.to_world_hull().with_overlap(overlap).build(),
+        OutlineMethod::ScreenHull => base.to_screen_hull().with_overlap(overlap).build(),
     }
 }
 
@@ -311,7 +311,7 @@ fn adjust_outline_width(
     }
 
     match mode_toggle.mode {
-        OutlineMode::JumpFlood => {
+        OutlineMethod::JumpFlood => {
             let mut next = width_control.jump_flood_width_px;
             if decrease {
                 next = (next - 1.0).max(1.0);
@@ -324,7 +324,7 @@ fn adjust_outline_width(
                 outline.width = next;
             }
         },
-        OutlineMode::WorldHull => {
+        OutlineMethod::WorldHull => {
             let mut next = width_control.hull_width_world;
             if decrease {
                 next /= 1.2;
@@ -337,7 +337,7 @@ fn adjust_outline_width(
                 outline.width = width_control.hull_width_world;
             }
         },
-        OutlineMode::ScreenHull => {
+        OutlineMethod::ScreenHull => {
             let mut next = width_control.shell_width_px;
             if decrease {
                 next = (next - 0.5).max(0.5);
@@ -359,7 +359,7 @@ fn adjust_overlap(
     mut overlap_control: ResMut<OverlapControl>,
     mut outline_query: Query<&mut MeshOutline>,
 ) {
-    if mode_toggle.mode == OutlineMode::JumpFlood {
+    if mode_toggle.mode == OutlineMethod::JumpFlood {
         return;
     }
 
@@ -370,9 +370,9 @@ fn adjust_overlap(
     }
 
     let current = match mode_toggle.mode {
-        OutlineMode::WorldHull => &mut overlap_control.hull_overlap,
-        OutlineMode::ScreenHull => &mut overlap_control.shell_overlap,
-        OutlineMode::JumpFlood => unreachable!(),
+        OutlineMethod::WorldHull => &mut overlap_control.hull_overlap,
+        OutlineMethod::ScreenHull => &mut overlap_control.shell_overlap,
+        OutlineMethod::JumpFlood => unreachable!(),
     };
 
     *current = match *current {
@@ -407,25 +407,25 @@ fn update_ui(
     mut text_query: Single<&mut Text, With<StatusText>>,
 ) {
     let mode_line = match mode_toggle.mode {
-        OutlineMode::JumpFlood => "Mode: JumpFlood (M)",
-        OutlineMode::WorldHull => "Mode: WorldHull (M)",
-        OutlineMode::ScreenHull => "Mode: ScreenHull (M)",
+        OutlineMethod::JumpFlood => "Mode: JumpFlood (M)",
+        OutlineMethod::WorldHull => "Mode: WorldHull (M)",
+        OutlineMethod::ScreenHull => "Mode: ScreenHull (M)",
     };
 
     let width_line = match mode_toggle.mode {
-        OutlineMode::JumpFlood => {
+        OutlineMethod::JumpFlood => {
             format!(
                 "Width: {:.1} px (Left / Right)",
                 width_control.jump_flood_width_px
             )
         },
-        OutlineMode::WorldHull => {
+        OutlineMethod::WorldHull => {
             format!(
                 "Width: {:.4} m (Left / Right)",
                 width_control.hull_width_world
             )
         },
-        OutlineMode::ScreenHull => {
+        OutlineMethod::ScreenHull => {
             format!(
                 "Width: {:.1} px (Left / Right)",
                 width_control.shell_width_px
@@ -434,17 +434,17 @@ fn update_ui(
     };
 
     let third_line = match mode_toggle.mode {
-        OutlineMode::JumpFlood => {
+        OutlineMethod::JumpFlood => {
             let priority_state = if priority_toggle.enabled { "on" } else { "off" };
             format!("Priority: {priority_state} (Q)")
         },
-        OutlineMode::WorldHull => {
+        OutlineMethod::WorldHull => {
             format!(
                 "Overlap: {} (- / +)",
                 overlap_mode_label(overlap_control.hull_overlap)
             )
         },
-        OutlineMode::ScreenHull => {
+        OutlineMethod::ScreenHull => {
             format!(
                 "Overlap: {} (- / +)",
                 overlap_mode_label(overlap_control.shell_overlap)
