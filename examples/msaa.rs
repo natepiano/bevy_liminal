@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use bevy::render::camera::MipBias;
 use bevy::render::camera::TemporalJitter;
 use bevy_liminal::LiminalPlugin;
-use bevy_liminal::MeshOutline;
+use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
 
 fn main() {
@@ -79,11 +79,11 @@ fn setup(
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::from(YELLOW))),
         Transform::from_xyz(0.0, 1.0, 0.0),
-        MeshOutline::new(10.0),
+        Outline::new(10.0),
     ));
 }
 
-fn rotate(mut query: Query<&mut Transform, With<MeshOutline>>, time: Res<Time>) {
+fn rotate(mut query: Query<&mut Transform, With<Outline>>, time: Res<Time>) {
     for mut transform in &mut query {
         let rotation = Quat::from_rotation_y(time.delta_secs() / 6.)
             * Quat::from_rotation_x(time.delta_secs() / 3.0);

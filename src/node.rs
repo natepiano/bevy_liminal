@@ -24,12 +24,12 @@ use super::compose::ComposeOutputPipeline;
 use super::flood::FloodSettings;
 use super::flood::JumpFloodPass;
 use super::texture::FloodTextures;
-use crate::HullOutline3d;
-use crate::MeshOutline3d;
+use crate::HullOutlinePhase;
+use crate::JfaOutlinePhase;
 
 #[derive(Default)]
-pub struct MeshOutlineNode;
-impl ViewNode for MeshOutlineNode {
+pub struct OutlineNode;
+impl ViewNode for OutlineNode {
     type ViewQuery = (
         Entity,
         &'static ExtractedView,
@@ -59,13 +59,13 @@ impl ViewNode for MeshOutlineNode {
         ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let Some(outline_phases) = world.get_resource::<ViewBinnedRenderPhases<MeshOutline3d>>()
+        let Some(outline_phases) = world.get_resource::<ViewBinnedRenderPhases<JfaOutlinePhase>>()
         else {
             return Ok(());
         };
         let outline_phase = outline_phases.get(&extracted_view.retained_view_entity);
         let hull_phase = world
-            .get_resource::<ViewBinnedRenderPhases<HullOutline3d>>()
+            .get_resource::<ViewBinnedRenderPhases<HullOutlinePhase>>()
             .and_then(|phases| phases.get(&extracted_view.retained_view_entity));
 
         let has_jfa = outline_phase.is_some_and(|phase| !phase.is_empty());

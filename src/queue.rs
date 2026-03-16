@@ -5,8 +5,8 @@ use bevy::pbr::MeshPipelineKey;
 use bevy::pbr::RenderMeshInstances;
 use bevy::prelude::*;
 use bevy_render::batching::gpu_preprocessing::GpuPreprocessingSupport;
-use bevy_render::mesh::allocator::MeshAllocator;
 use bevy_render::mesh::RenderMesh;
+use bevy_render::mesh::allocator::MeshAllocator;
 use bevy_render::render_asset::RenderAssets;
 use bevy_render::render_phase::BinnedRenderPhaseType;
 use bevy_render::render_phase::DrawFunctions;
@@ -16,26 +16,26 @@ use bevy_render::render_resource::SpecializedMeshPipelines;
 use bevy_render::view::ExtractedView;
 use bevy_render::view::RenderVisibleEntities;
 
-use super::hull_pipeline::HullPipeline;
-use super::hull_pipeline::HullPipelineKey;
-use super::mask_pipeline::MaskPipelineKey;
-use super::mask_pipeline::MeshMaskPipeline;
 use super::ActiveOutlineModes;
 use super::DrawHull;
 use super::DrawOutline;
 use super::ExtractedOutlineUniforms;
-use super::HullOutline3d;
-use super::MeshOutline3d;
+use super::HullOutlinePhase;
+use super::JfaOutlinePhase;
 use super::OutlineCamera;
 use super::OutlineMethod;
+use super::hull_pipeline::HullPipeline;
+use super::hull_pipeline::HullPipelineKey;
+use super::mask_pipeline::MaskPipelineKey;
+use super::mask_pipeline::MeshMaskPipeline;
 use crate::mask::OutlineBatchSetKey;
 use crate::mask::OutlineBinKey;
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn queue_outline(
     extracted_outlines: Res<ExtractedOutlineUniforms>,
-    draw_functions: Res<DrawFunctions<MeshOutline3d>>,
-    mut outline_phases: ResMut<ViewBinnedRenderPhases<MeshOutline3d>>,
+    draw_functions: Res<DrawFunctions<JfaOutlinePhase>>,
+    mut outline_phases: ResMut<ViewBinnedRenderPhases<JfaOutlinePhase>>,
     mesh_outline_pipeline: Res<MeshMaskPipeline>,
     mut mesh_outline_pipelines: ResMut<SpecializedMeshPipelines<MeshMaskPipeline>>,
     pipeline_cache: Res<PipelineCache>,
@@ -147,8 +147,8 @@ pub fn queue_outline(
 pub fn queue_hull_outline(
     active: Res<ActiveOutlineModes>,
     extracted_outlines: Res<ExtractedOutlineUniforms>,
-    draw_functions: Res<DrawFunctions<HullOutline3d>>,
-    mut outline_phases: ResMut<ViewBinnedRenderPhases<HullOutline3d>>,
+    draw_functions: Res<DrawFunctions<HullOutlinePhase>>,
+    mut outline_phases: ResMut<ViewBinnedRenderPhases<HullOutlinePhase>>,
     hull_pipeline: Res<HullPipeline>,
     mut hull_pipelines: ResMut<SpecializedMeshPipelines<HullPipeline>>,
     pipeline_cache: Res<PipelineCache>,

@@ -36,7 +36,7 @@ pub(crate) struct OutlineBinKey {
     pub main_entity: MainEntity,
 }
 
-pub(crate) struct MeshOutline3d {
+pub(crate) struct JfaOutlinePhase {
     pub batch_set_key: OutlineBatchSetKey,
     pub entity:        Entity,
     pub main_entity:   MainEntity,
@@ -44,7 +44,7 @@ pub(crate) struct MeshOutline3d {
     pub extra_index:   PhaseItemExtraIndex,
 }
 
-impl PhaseItem for MeshOutline3d {
+impl PhaseItem for JfaOutlinePhase {
     #[inline]
     fn entity(&self) -> Entity { self.entity }
 
@@ -72,7 +72,7 @@ impl PhaseItem for MeshOutline3d {
     }
 }
 
-impl BinnedPhaseItem for MeshOutline3d {
+impl BinnedPhaseItem for JfaOutlinePhase {
     type BinKey = OutlineBinKey;
     type BatchSetKey = OutlineBatchSetKey;
 
@@ -93,12 +93,12 @@ impl BinnedPhaseItem for MeshOutline3d {
     }
 }
 
-impl CachedRenderPipelinePhaseItem for MeshOutline3d {
+impl CachedRenderPipelinePhaseItem for JfaOutlinePhase {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId { self.batch_set_key.pipeline }
 }
 
-pub(crate) struct HullOutline3d {
+pub(crate) struct HullOutlinePhase {
     pub batch_set_key: OutlineBatchSetKey,
     pub entity:        Entity,
     pub main_entity:   MainEntity,
@@ -106,7 +106,7 @@ pub(crate) struct HullOutline3d {
     pub extra_index:   PhaseItemExtraIndex,
 }
 
-impl PhaseItem for HullOutline3d {
+impl PhaseItem for HullOutlinePhase {
     #[inline]
     fn entity(&self) -> Entity { self.entity }
 
@@ -125,7 +125,7 @@ impl PhaseItem for HullOutline3d {
     }
 }
 
-impl BinnedPhaseItem for HullOutline3d {
+impl BinnedPhaseItem for HullOutlinePhase {
     type BinKey = OutlineBinKey;
     type BatchSetKey = OutlineBatchSetKey;
 
@@ -146,7 +146,7 @@ impl BinnedPhaseItem for HullOutline3d {
     }
 }
 
-impl CachedRenderPipelinePhaseItem for HullOutline3d {
+impl CachedRenderPipelinePhaseItem for HullOutlinePhase {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId { self.batch_set_key.pipeline }
 }

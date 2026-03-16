@@ -8,7 +8,7 @@ use bevy::light::CascadeShadowConfigBuilder;
 use bevy::prelude::*;
 use bevy::scene::SceneInstanceReady;
 use bevy_liminal::LiminalPlugin;
-use bevy_liminal::MeshOutline;
+use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
 
 const GLTF_PATH: &str = "Fox.glb";
@@ -63,7 +63,7 @@ fn initialize_outlines(
     for child in children.iter_descendants(trigger.event().entity) {
         // If the current entity in scene is a mesh - add outline
         if let Ok(mesh_entity) = mesh_entities.get(child) {
-            commands.entity(mesh_entity).insert(MeshOutline::new(10.0));
+            commands.entity(mesh_entity).insert(Outline::new(10.0));
         }
     }
     commands.entity(trigger.observer()).despawn();

@@ -5,12 +5,12 @@ use bevy_render::batching::gpu_preprocessing::GpuPreprocessingSupport;
 use bevy_render::render_phase::ViewBinnedRenderPhases;
 use bevy_render::view::RetainedViewEntity;
 
-use super::mask::HullOutline3d;
-use super::mask::MeshOutline3d;
+use super::mask::HullOutlinePhase;
+use super::mask::JfaOutlinePhase;
 
 pub fn update_views(
-    mut outline_phases: ResMut<ViewBinnedRenderPhases<MeshOutline3d>>,
-    mut hull_outline_phases: ResMut<ViewBinnedRenderPhases<HullOutline3d>>,
+    mut outline_phases: ResMut<ViewBinnedRenderPhases<JfaOutlinePhase>>,
+    mut hull_outline_phases: ResMut<ViewBinnedRenderPhases<HullOutlinePhase>>,
     query: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,

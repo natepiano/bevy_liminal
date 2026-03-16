@@ -8,7 +8,7 @@ use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy_brp_extras::BrpExtrasPlugin;
 use bevy_liminal::LiminalPlugin;
-use bevy_liminal::MeshOutline;
+use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
 use bevy_liminal::OutlineMethod;
 use bevy_liminal::OverlapMode;
@@ -171,7 +171,7 @@ fn setup(
         })),
         Transform::from_xyz(0.0, 1.0, 0.0)
             .with_rotation(Quat::from_rotation_x(PI / 5.0) * Quat::from_rotation_y(PI / 3.0)),
-        MeshOutline::builder(INITIAL_HULL_WIDTH_WORLD)
+        Outline::builder(INITIAL_HULL_WIDTH_WORLD)
             .with_color(Color::from(RED))
             .to_world_hull()
             .with_overlap(INITIAL_HULL_OVERLAP)
@@ -183,7 +183,7 @@ fn setup(
         Mesh3d(meshes.add(Sphere::default())),
         MeshMaterial3d(materials.add(Color::from(BLUE))),
         Transform::from_xyz(-0.5, 1.0, 0.5),
-        MeshOutline::builder(INITIAL_HULL_WIDTH_WORLD)
+        Outline::builder(INITIAL_HULL_WIDTH_WORLD)
             .with_color(Color::from(GREEN))
             .with_intensity(10.0)
             .to_world_hull()
@@ -204,7 +204,7 @@ fn setup(
         Mesh3d(meshes.add(Sphere::new(0.5))),
         MeshMaterial3d(non_intersect_sphere_mat),
         Transform::from_xyz(-0.75, 1.0, -7.8),
-        MeshOutline::builder(INITIAL_HULL_WIDTH_WORLD)
+        Outline::builder(INITIAL_HULL_WIDTH_WORLD)
             .with_color(Color::from(GREEN))
             .with_intensity(10.0)
             .to_world_hull()
@@ -218,7 +218,7 @@ fn setup(
         MeshMaterial3d(non_intersect_cube_mat),
         Transform::from_xyz(0.0, 1.0, -4.0)
             .with_rotation(Quat::from_rotation_x(PI / 5.0) * Quat::from_rotation_y(PI / 3.0)),
-        MeshOutline::builder(INITIAL_HULL_WIDTH_WORLD)
+        Outline::builder(INITIAL_HULL_WIDTH_WORLD)
             .with_color(Color::from(RED))
             .to_world_hull()
             .with_overlap(INITIAL_HULL_OVERLAP)
@@ -256,7 +256,7 @@ fn toggle_outline_mode(
     width_control: Res<OutlineWidthControl>,
     overlap_control: Res<OverlapControl>,
     mut mode_toggle: ResMut<OutlineModeToggle>,
-    mut outline_query: Query<&mut MeshOutline>,
+    mut outline_query: Query<&mut Outline>,
 ) {
     if !input.just_pressed(KeyCode::KeyM) {
         return;
@@ -281,13 +281,13 @@ fn toggle_outline_mode(
 }
 
 fn rebuilt_outline_for_mode(
-    current: &MeshOutline,
+    current: &Outline,
     mode: OutlineMethod,
     width: f32,
     overlap: OverlapMode,
     priority: f32,
-) -> MeshOutline {
-    let base = MeshOutline::builder(width)
+) -> Outline {
+    let base = Outline::builder(width)
         .with_intensity(current.intensity)
         .with_color(current.color);
 
@@ -302,7 +302,7 @@ fn adjust_outline_width(
     input: Res<ButtonInput<KeyCode>>,
     mode_toggle: Res<OutlineModeToggle>,
     mut width_control: ResMut<OutlineWidthControl>,
-    mut outline_query: Query<&mut MeshOutline>,
+    mut outline_query: Query<&mut Outline>,
 ) {
     let decrease = input.just_pressed(KeyCode::ArrowLeft);
     let increase = input.just_pressed(KeyCode::ArrowRight);
@@ -357,7 +357,7 @@ fn adjust_overlap(
     input: Res<ButtonInput<KeyCode>>,
     mode_toggle: Res<OutlineModeToggle>,
     mut overlap_control: ResMut<OverlapControl>,
-    mut outline_query: Query<&mut MeshOutline>,
+    mut outline_query: Query<&mut Outline>,
 ) {
     if mode_toggle.mode == OutlineMethod::JumpFlood {
         return;
@@ -388,7 +388,7 @@ fn adjust_overlap(
 
 fn update_outline_priorities(
     priority_toggle: Res<PriorityToggle>,
-    mut outline_query: Query<(&mut MeshOutline, &OutlinePriority)>,
+    mut outline_query: Query<(&mut Outline, &OutlinePriority)>,
 ) {
     for (mut outline, priority) in &mut outline_query {
         if priority_toggle.enabled {

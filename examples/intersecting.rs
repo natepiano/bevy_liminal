@@ -9,7 +9,7 @@ use bevy::core_pipeline::prepass::DepthPrepass;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 use bevy_liminal::LiminalPlugin;
-use bevy_liminal::MeshOutline;
+use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
 
 fn main() {
@@ -79,7 +79,7 @@ fn setup(
         MeshMaterial3d(materials.add(Color::from(YELLOW))),
         Transform::from_xyz(0.0, 1.0, 0.0)
             .with_rotation(Quat::from_rotation_x(PI / 5.0) * Quat::from_rotation_y(PI / 3.0)),
-        MeshOutline::new(10.0).with_color(Color::from(RED)),
+        Outline::new(10.0).with_color(Color::from(RED)),
         OutlinePriority(1.0),
     ));
 
@@ -88,7 +88,7 @@ fn setup(
         Mesh3d(meshes.add(Sphere::default())),
         MeshMaterial3d(materials.add(Color::from(BLUE))),
         Transform::from_xyz(-0.5, 1.0, 0.5),
-        MeshOutline::new(10.0)
+        Outline::new(10.0)
             .with_color(Color::from(GREEN))
             .with_intensity(10.0),
         OutlinePriority(10.0),
@@ -121,7 +121,7 @@ fn toggle_priority(input: Res<ButtonInput<KeyCode>>, mut priority_toggle: ResMut
 
 fn update_outline_priorities(
     priority_toggle: Res<PriorityToggle>,
-    mut outline_query: Query<(&mut MeshOutline, &OutlinePriority)>,
+    mut outline_query: Query<(&mut Outline, &OutlinePriority)>,
 ) {
     for (mut outline, priority) in &mut outline_query {
         if priority_toggle.enabled {

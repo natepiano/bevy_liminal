@@ -19,9 +19,9 @@ use bytemuck::Zeroable;
 
 use super::ActiveOutlineModes;
 use super::ExtractedOutlineUniforms;
-use super::HullOutline3d;
+use super::HullOutlinePhase;
 use super::hull_pipeline::HullPipeline;
-use super::mask::MeshOutline3d;
+use super::mask::JfaOutlinePhase;
 use super::mask_pipeline::MeshMaskPipeline;
 use super::texture::FloodTextures;
 use super::uniforms::OutlineUniform;
@@ -74,7 +74,7 @@ pub struct HullOutlineBindGroup(pub Option<BindGroup>);
 pub fn prepare_outline_buffer(
     render_mesh_instances: Res<RenderMeshInstances>,
     extracted_outlines: Res<ExtractedOutlineUniforms>,
-    outline_phases: Res<ViewBinnedRenderPhases<MeshOutline3d>>,
+    outline_phases: Res<ViewBinnedRenderPhases<JfaOutlinePhase>>,
     mut outline_buffer: ResMut<OutlineUniformBuffer>,
 ) {
     outline_buffer.0.clear();
@@ -255,7 +255,7 @@ pub fn prepare_hull_outline_buffer(
     active: Res<ActiveOutlineModes>,
     render_mesh_instances: Res<RenderMeshInstances>,
     extracted_outlines: Res<ExtractedOutlineUniforms>,
-    outline_phases: Res<ViewBinnedRenderPhases<HullOutline3d>>,
+    outline_phases: Res<ViewBinnedRenderPhases<HullOutlinePhase>>,
     mut outline_buffer: ResMut<HullOutlineUniformBuffer>,
 ) {
     outline_buffer.0.clear();

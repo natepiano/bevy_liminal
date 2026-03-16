@@ -4,7 +4,7 @@ use bevy::color::palettes::css::SILVER;
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 use bevy_liminal::LiminalPlugin;
-use bevy_liminal::MeshOutline;
+use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
 use bevy_render::view::Hdr;
 
@@ -63,7 +63,7 @@ fn setup(
         MeshMaterial3d(materials.add(Color::from(BLUE))),
         Transform::from_xyz(0.0, 1.0, 0.0),
         // Add outline
-        MeshOutline::new(10.0).with_color(Color::from(RED)),
+        Outline::new(10.0).with_color(Color::from(RED)),
         OutlineGlow {
             intensity: 20.0,
             period:    0.2,
@@ -71,7 +71,7 @@ fn setup(
     ));
 }
 
-fn rotate(mut query: Query<&mut Transform, With<MeshOutline>>, time: Res<Time>) {
+fn rotate(mut query: Query<&mut Transform, With<Outline>>, time: Res<Time>) {
     for mut transform in &mut query {
         let rotation = Quat::from_rotation_y(time.delta_secs() / 2.)
             * Quat::from_rotation_x(time.delta_secs());
@@ -80,7 +80,7 @@ fn rotate(mut query: Query<&mut Transform, With<MeshOutline>>, time: Res<Time>) 
     }
 }
 
-fn oscillate_intensity(mut query: Query<(&mut MeshOutline, &OutlineGlow)>, time: Res<Time>) {
+fn oscillate_intensity(mut query: Query<(&mut Outline, &OutlineGlow)>, time: Res<Time>) {
     for (mut outline, glow) in &mut query {
         let t = (time.elapsed_secs() / glow.period).sin() * 0.5 + 0.5; // Normalize to [0, 1]
 

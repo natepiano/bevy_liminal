@@ -13,8 +13,8 @@ use bevy::prelude::*;
 use bevy::window::PresentMode;
 use bevy::winit::WinitSettings;
 use bevy_brp_extras::BrpExtrasPlugin;
-use bevy_liminal::MeshOutline;
 use bevy_liminal::LiminalPlugin;
+use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
 use bevy_liminal::OutlineMethod;
 use bevy_liminal::OverlapMode;
@@ -416,19 +416,19 @@ fn random_outline_color() -> Color {
     Color::srgb(rng.random(), rng.random(), rng.random())
 }
 
-fn build_outline(width: f32, outline_mode: OutlineMethod) -> MeshOutline {
+fn build_outline(width: f32, outline_mode: OutlineMethod) -> Outline {
     match outline_mode {
-        OutlineMethod::JumpFlood => MeshOutline::builder(width)
+        OutlineMethod::JumpFlood => Outline::builder(width)
             .with_intensity(DEFAULT_OUTLINE_INTENSITY)
             .with_color(random_outline_color())
             .build(),
-        OutlineMethod::WorldHull => MeshOutline::builder(width)
+        OutlineMethod::WorldHull => Outline::builder(width)
             .with_intensity(DEFAULT_OUTLINE_INTENSITY)
             .with_color(random_outline_color())
             .to_world_hull()
             .with_overlap(OverlapMode::Individual)
             .build(),
-        OutlineMethod::ScreenHull => MeshOutline::builder(width)
+        OutlineMethod::ScreenHull => Outline::builder(width)
             .with_intensity(DEFAULT_OUTLINE_INTENSITY)
             .with_color(random_outline_color())
             .to_screen_hull()

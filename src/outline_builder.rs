@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use bevy::prelude::Color;
 
-use crate::MeshOutline;
+use crate::Outline;
 use crate::OutlineMethod;
 use crate::OverlapMode;
 
@@ -87,8 +87,8 @@ impl OutlineBuilder<JumpFloodState> {
         }
     }
 
-    pub fn build(self) -> MeshOutline {
-        MeshOutline {
+    pub fn build(self) -> Outline {
+        Outline {
             intensity: self.intensity,
             width:     self.width,
             priority:  self.priority,
@@ -172,8 +172,8 @@ impl<M: HullModeState> OutlineBuilder<M> {
         self
     }
 
-    pub fn build(self) -> MeshOutline {
-        MeshOutline {
+    pub fn build(self) -> Outline {
+        Outline {
             intensity: self.intensity,
             width:     self.width,
             priority:  0.0,
@@ -184,10 +184,10 @@ impl<M: HullModeState> OutlineBuilder<M> {
     }
 }
 
-impl<M: OutlineModeState> From<OutlineBuilder<M>> for MeshOutline {
+impl<M: OutlineModeState> From<OutlineBuilder<M>> for Outline {
     fn from(builder: OutlineBuilder<M>) -> Self {
         match M::MODE {
-            OutlineMethod::JumpFlood => MeshOutline {
+            OutlineMethod::JumpFlood => Outline {
                 intensity: builder.intensity,
                 width:     builder.width,
                 priority:  builder.priority,
@@ -195,7 +195,7 @@ impl<M: OutlineModeState> From<OutlineBuilder<M>> for MeshOutline {
                 color:     builder.color,
                 mode:      OutlineMethod::JumpFlood,
             },
-            OutlineMethod::WorldHull | OutlineMethod::ScreenHull => MeshOutline {
+            OutlineMethod::WorldHull | OutlineMethod::ScreenHull => Outline {
                 intensity: builder.intensity,
                 width:     builder.width,
                 priority:  0.0,
@@ -219,13 +219,13 @@ mod private {
 mod tests {
     use bevy::prelude::Color;
 
-    use crate::MeshOutline;
+    use crate::Outline;
     use crate::OutlineMethod;
     use crate::OverlapMode;
 
     #[test]
     fn mode_switches_drop_non_applicable_properties() {
-        let outline = MeshOutline::builder(4.0)
+        let outline = Outline::builder(4.0)
             .with_priority(1.0)
             .to_world_hull()
             .with_overlap(OverlapMode::Individual)
@@ -244,7 +244,7 @@ mod tests {
 
     #[test]
     fn overlap_survives_between_hull_modes() {
-        let outline = MeshOutline::builder(3.0)
+        let outline = Outline::builder(3.0)
             .to_world_hull()
             .with_overlap(OverlapMode::Individual)
             .to_screen_hull()
@@ -257,12 +257,12 @@ mod tests {
 
     #[test]
     fn priority_survives_in_jump_flood_only() {
-        let jump_outline = MeshOutline::builder(2.0).with_priority(7.0).build();
+        let jump_outline = Outline::builder(2.0).with_priority(7.0).build();
         assert_eq!(jump_outline.mode, OutlineMethod::JumpFlood);
         assert_eq!(jump_outline.priority, 7.0);
         assert_eq!(jump_outline.overlap, OverlapMode::Merged);
 
-        let switched_outline = MeshOutline::builder(2.0)
+        let switched_outline = Outline::builder(2.0)
             .with_priority(7.0)
             .to_world_hull()
             .to_jump_flood()
@@ -274,7 +274,7 @@ mod tests {
 
     #[test]
     fn legacy_new_api_still_works() {
-        let outline = MeshOutline::new(5.0)
+        let outline = Outline::new(5.0)
             .with_priority(3.0)
             .with_mode(OutlineMethod::WorldHull);
 

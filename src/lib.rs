@@ -15,12 +15,17 @@ mod view;
 use bevy::core_pipeline::core_3d::graph::Core3d;
 use bevy::core_pipeline::core_3d::graph::Node3d;
 use bevy::core_pipeline::prepass::DepthPrepass;
-use bevy::pbr::extract_skins;
 use bevy::pbr::DrawMesh;
 use bevy::pbr::SetMeshBindGroup;
 use bevy::pbr::SetMeshViewBindGroup;
 use bevy::pbr::SetMeshViewBindingArrayBindGroup;
+use bevy::pbr::extract_skins;
 use bevy::prelude::*;
+use bevy_render::Extract;
+use bevy_render::Render;
+use bevy_render::RenderApp;
+use bevy_render::RenderDebugFlags;
+use bevy_render::RenderSystems;
 use bevy_render::extract_component::ExtractComponent;
 use bevy_render::extract_component::ExtractComponentPlugin;
 use bevy_render::render_graph::RenderGraphExt;
@@ -37,30 +42,20 @@ use bevy_render::render_resource::TextureUsages;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::sync_world::MainEntityHashMap;
-use bevy_render::Extract;
-use bevy_render::Render;
-use bevy_render::RenderApp;
-use bevy_render::RenderDebugFlags;
-use bevy_render::RenderSystems;
 use compose::ComposeOutputPipeline;
-use flood::prepare_flood_settings;
 use flood::JumpFloodPipeline;
+use flood::prepare_flood_settings;
 use hull_pipeline::HullPipeline;
-use mask::HullOutline3d;
-use mask::MeshOutline3d;
+use mask::HullOutlinePhase;
+use mask::JfaOutlinePhase;
 use mask_pipeline::MeshMaskPipeline;
-use node::MeshOutlineNode;
+use node::OutlineNode;
 pub use outline_builder::JumpFloodState;
 pub use outline_builder::OutlineBuilder;
 pub use outline_builder::ScreenHullState;
 pub use outline_builder::WorldHullState;
 use queue::queue_hull_outline;
 use queue::queue_outline;
-use render::prepare_hull_depth_view_bind_groups;
-use render::prepare_hull_outline_bind_group;
-use render::prepare_hull_outline_buffer;
-use render::prepare_outline_bind_group;
-use render::prepare_outline_buffer;
 use render::HullOutlineBindGroup;
 use render::HullOutlineUniformBuffer;
 use render::OutlineBindGroup;
@@ -68,6 +63,11 @@ use render::OutlineUniformBuffer;
 use render::SetHullDepthBindGroup;
 use render::SetHullOutlineBindGroup;
 use render::SetOutlineBindGroup;
+use render::prepare_hull_depth_view_bind_groups;
+use render::prepare_hull_outline_bind_group;
+use render::prepare_hull_outline_buffer;
+use render::prepare_outline_bind_group;
+use render::prepare_outline_buffer;
 use texture::prepare_flood_textures;
 use view::update_views;
 
@@ -143,7 +143,7 @@ fn extract_outline_uniforms(
     mut extracted_outlines: ResMut<ExtractedOutlineUniforms>,
     added_or_changed_outlines: Extract<Query<OutlineEntityAndOutline, AddedOrChangedOutlineFilter>>,
     added_mesh_outlines: Extract<Query<OutlineEntityAndOutline, AddedOutlineFilter>>,
-    mut removed_outlines: Extract<RemovedComponents<MeshOutline>>,
+    mut removed_outlines: Extract<RemovedComponents<Outline>>,
     mut removed_meshes: Extract<RemovedComponents<Mesh3d>>,
 ) {
     let mut dirty = false;
@@ -181,9 +181,9 @@ fn extract_outline_uniforms(
     }
 }
 
-type OutlineEntityAndOutline = (Entity, &'static MeshOutline);
-type AddedOrChangedOutlineFilter = (With<Mesh3d>, Or<(Added<MeshOutline>, Changed<MeshOutline>)>);
-type AddedOutlineFilter = (Added<Mesh3d>, With<MeshOutline>);
+type OutlineEntityAndOutline = (Entity, &'static Outline);
+type AddedOrChangedOutlineFilter = (With<Mesh3d>, Or<(Added<Outline>, Changed<Outline>)>);
+type AddedOutlineFilter = (Added<Mesh3d>, With<Outline>);
 
 fn update_active_outline_modes(
     extracted_outlines: Res<ExtractedOutlineUniforms>,
@@ -224,7 +224,7 @@ impl Plugin for LiminalPlugin {
         load_shaders(app);
 
         app.add_plugins((ExtractComponentPlugin::<OutlineCamera>::default(),));
-        app.register_type::<MeshOutline>();
+        app.register_type::<Outline>();
         app.register_type::<OutlineMethod>();
         app.register_type::<OverlapMode>();
 
@@ -233,21 +233,21 @@ impl Plugin for LiminalPlugin {
         app.add_systems(PostUpdate, configure_outline_camera_depth_texture);
 
         app.add_plugins((
-            BinnedRenderPhasePlugin::<MeshOutline3d, MeshMaskPipeline>::new(
+            BinnedRenderPhasePlugin::<JfaOutlinePhase, MeshMaskPipeline>::new(
                 RenderDebugFlags::default(),
             ),
-            BinnedRenderPhasePlugin::<HullOutline3d, HullPipeline>::new(
+            BinnedRenderPhasePlugin::<HullOutlinePhase, HullPipeline>::new(
                 RenderDebugFlags::default(),
             ),
         ));
 
         app.sub_app_mut(RenderApp)
-            .init_resource::<DrawFunctions<MeshOutline3d>>()
-            .init_resource::<DrawFunctions<HullOutline3d>>()
+            .init_resource::<DrawFunctions<JfaOutlinePhase>>()
+            .init_resource::<DrawFunctions<HullOutlinePhase>>()
             .init_resource::<SpecializedMeshPipelines<MeshMaskPipeline>>()
             .init_resource::<SpecializedMeshPipelines<HullPipeline>>()
-            .init_resource::<ViewBinnedRenderPhases<MeshOutline3d>>()
-            .init_resource::<ViewBinnedRenderPhases<HullOutline3d>>()
+            .init_resource::<ViewBinnedRenderPhases<JfaOutlinePhase>>()
+            .init_resource::<ViewBinnedRenderPhases<HullOutlinePhase>>()
             .init_resource::<OutlineBindGroup>()
             .init_resource::<HullOutlineBindGroup>()
             .init_resource::<ActiveOutlineModes>()
@@ -276,9 +276,9 @@ impl Plugin for LiminalPlugin {
                         .in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
-            .add_render_command::<MeshOutline3d, DrawOutline>()
-            .add_render_command::<HullOutline3d, DrawHull>()
-            .add_render_graph_node::<ViewNodeRunner<MeshOutlineNode>>(
+            .add_render_command::<JfaOutlinePhase, DrawOutline>()
+            .add_render_command::<HullOutlinePhase, DrawHull>()
+            .add_render_graph_node::<ViewNodeRunner<OutlineNode>>(
                 Core3d,
                 OutlineRenderGraphNode::OutlineNode,
             )
@@ -323,7 +323,7 @@ pub struct OutlineCamera;
 /// Should be added to the entity containing the Mesh3d component.
 #[derive(Debug, Component, Reflect, Clone)]
 #[reflect(Component)]
-pub struct MeshOutline {
+pub struct Outline {
     pub intensity: f32,
     pub width:     f32,
     pub priority:  f32,
@@ -332,7 +332,7 @@ pub struct MeshOutline {
     pub mode:      OutlineMethod,
 }
 
-impl MeshOutline {
+impl Outline {
     pub fn new(width: f32) -> Self {
         Self {
             intensity: 1.0,
@@ -395,7 +395,7 @@ pub struct ExtractedOutline {
 }
 
 impl ExtractedOutline {
-    fn from_main_world(entity: Entity, outline: &MeshOutline) -> Self {
+    fn from_main_world(entity: Entity, outline: &Outline) -> Self {
         let linear_color: LinearRgba = outline.color.into();
         ExtractedOutline {
             intensity: outline.intensity,
