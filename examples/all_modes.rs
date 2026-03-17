@@ -8,6 +8,7 @@ use bevy_liminal::LiminalPlugin;
 use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
 use bevy_liminal::OutlineMethod;
+use bevy_liminal::OverlapMode;
 use bevy_panorbit_camera::PanOrbitCamera;
 use bevy_panorbit_camera::PanOrbitCameraPlugin;
 use bevy_panorbit_camera::TrackpadBehavior;
@@ -44,6 +45,7 @@ fn main() {
             LiminalPlugin,
         ))
         .add_systems(Startup, setup)
+        .add_systems(Update, toggle_overlap)
         .run();
 }
 
@@ -70,9 +72,9 @@ fn setup(
     });
 
     let modes: &[(OutlineMethod, &str)] = &[
-        (OutlineMethod::JumpFlood, "JumpFlood"),
         (OutlineMethod::WorldHull, "WorldHull"),
         (OutlineMethod::ScreenHull, "ScreenHull"),
+        (OutlineMethod::JumpFlood, "JumpFlood"),
     ];
 
     // Per-column rotations shared by all shapes in that column.
@@ -90,7 +92,7 @@ fn setup(
         let x = (col as f32 - 1.0) * GRID_SPACING;
         let rotation = column_rotations[col];
         let width = match mode {
-            OutlineMethod::WorldHull => 0.05,
+            OutlineMethod::WorldHull => 0.03,
             _ => OUTLINE_WIDTH,
         };
         let outline = Outline::new(width)
@@ -204,8 +206,9 @@ fn setup(
         Text::new(
             "Click a mesh to zoom-to-fit\n\
              Click the ground to zoom back out\n\
+             Press 'O' to toggle overlap mode\n\
              \n\
-             Columns: JumpFlood | WorldHull | ScreenHull\n\
+             Columns: WorldHull | ScreenHull | JumpFlood\n\
              Rows: Torus | Cube | Spaceship",
         ),
         TextFont {
@@ -216,6 +219,23 @@ fn setup(
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
+
+    // Overlap mode label (bottom-left)
+    commands.spawn((
+        OverlapLabel,
+        Text::new("Overlap: Merged"),
+        TextFont {
+            font_size: 16.0,
+            ..default()
+        },
+        TextColor(Color::srgba(1.0, 1.0, 0.5, 0.9)),
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
         },
@@ -265,4 +285,39 @@ fn on_ground_clicked(click: On<Pointer<Click>>, mut commands: Commands, scene: R
             .margin(ZOOM_MARGIN_SCENE)
             .duration(Duration::from_millis(ZOOM_DURATION_MS)),
     );
+}
+
+#[derive(Component)]
+struct OverlapLabel;
+
+fn toggle_overlap(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut outlines: Query<&mut Outline>,
+    mut label: Query<&mut Text, With<OverlapLabel>>,
+) {
+    if !keys.just_pressed(KeyCode::KeyO) {
+        return;
+    }
+
+    let mut new_mode = None;
+    for mut outline in &mut outlines {
+        let toggled = match outline.overlap {
+            OverlapMode::Merged => OverlapMode::Individual,
+            OverlapMode::Individual => OverlapMode::Merged,
+            _ => outline.overlap,
+        };
+        outline.overlap = toggled;
+        new_mode = Some(toggled);
+    }
+
+    if let Some(mode) = new_mode {
+        if let Ok(mut text) = label.single_mut() {
+            let label_str = match mode {
+                OverlapMode::Merged => "Merged",
+                OverlapMode::Individual => "Individual",
+                _ => "Unknown",
+            };
+            **text = format!("Overlap: {label_str}");
+        }
+    }
 }

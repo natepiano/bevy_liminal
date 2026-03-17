@@ -90,18 +90,21 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
     let surface_clip = position_world_to_clip(world_position.xyz);
 
-    // Extrude along vertex normals for uniform outline width on hard-edged
-    // geometry (cuboids, panels). Falls back to radial direction from the
-    // object origin when normals are unavailable.
-#ifdef VERTEX_NORMALS
-    var hull_dir = mesh_functions::mesh_normal_local_to_world(
-        vertex.normal,
-        vertex_no_morph.instance_index,
-    );
-#else
+    // Radial extrusion from object origin. All vertices at the same position
+    // extrude in the same direction, keeping corners connected on hard-edged
+    // geometry (cuboids). Falls back to vertex normal when the vertex is at
+    // the origin.
     let object_origin = (world_from_local * vec4<f32>(0.0, 0.0, 0.0, 1.0)).xyz;
     var hull_dir = world_position.xyz - object_origin;
     let hull_dir_len_sq = dot(hull_dir, hull_dir);
+#ifdef VERTEX_NORMALS
+    if hull_dir_len_sq < 1e-8 {
+        hull_dir = mesh_functions::mesh_normal_local_to_world(
+            vertex.normal,
+            vertex_no_morph.instance_index,
+        );
+    }
+#else
     if hull_dir_len_sq < 1e-8 {
         hull_dir = vec3<f32>(0.0, 1.0, 0.0);
     }
