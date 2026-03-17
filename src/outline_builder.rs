@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use bevy::prelude::Color;
 
+use crate::LineStyle;
 use crate::Outline;
 use crate::OutlineMethod;
 use crate::OverlapMode;
@@ -41,7 +42,6 @@ pub struct OutlineBuilder<M: OutlineModeState> {
     width:     f32,
     intensity: f32,
     color:     Color,
-    priority:  f32,
     overlap:   OverlapMode,
     _mode:     PhantomData<M>,
 }
@@ -51,16 +51,10 @@ impl OutlineBuilder<JumpFloodState> {
         Self {
             intensity: 1.0,
             width,
-            priority: 0.0,
             overlap: OverlapMode::Merged,
             color: Color::BLACK,
             _mode: PhantomData,
         }
-    }
-
-    pub fn with_priority(mut self, priority: f32) -> Self {
-        self.priority = priority;
-        self
     }
 
     pub fn to_world_hull(self) -> OutlineBuilder<WorldHullState> {
@@ -68,8 +62,6 @@ impl OutlineBuilder<JumpFloodState> {
             width:     self.width,
             intensity: self.intensity,
             color:     self.color,
-            // Priority only applies to JumpFlood and is dropped on transition.
-            priority:  0.0,
             overlap:   OverlapMode::Merged,
             _mode:     PhantomData,
         }
@@ -80,8 +72,6 @@ impl OutlineBuilder<JumpFloodState> {
             width:     self.width,
             intensity: self.intensity,
             color:     self.color,
-            // Priority only applies to JumpFlood and is dropped on transition.
-            priority:  0.0,
             overlap:   OverlapMode::Merged,
             _mode:     PhantomData,
         }
@@ -91,10 +81,11 @@ impl OutlineBuilder<JumpFloodState> {
         Outline {
             intensity: self.intensity,
             width:     self.width,
-            priority:  self.priority,
             overlap:   OverlapMode::Merged,
             color:     self.color,
             mode:      OutlineMethod::JumpFlood,
+            style:     LineStyle::Solid,
+            enabled:   true,
         }
     }
 }
@@ -105,8 +96,6 @@ impl OutlineBuilder<WorldHullState> {
             width:     self.width,
             intensity: self.intensity,
             color:     self.color,
-            priority:  0.0,
-            // Overlap only applies to hull modes and is dropped on transition.
             overlap:   OverlapMode::Merged,
             _mode:     PhantomData,
         }
@@ -117,7 +106,6 @@ impl OutlineBuilder<WorldHullState> {
             width:     self.width,
             intensity: self.intensity,
             color:     self.color,
-            priority:  0.0,
             overlap:   self.overlap,
             _mode:     PhantomData,
         }
@@ -130,8 +118,6 @@ impl OutlineBuilder<ScreenHullState> {
             width:     self.width,
             intensity: self.intensity,
             color:     self.color,
-            priority:  0.0,
-            // Overlap only applies to hull modes and is dropped on transition.
             overlap:   OverlapMode::Merged,
             _mode:     PhantomData,
         }
@@ -142,7 +128,6 @@ impl OutlineBuilder<ScreenHullState> {
             width:     self.width,
             intensity: self.intensity,
             color:     self.color,
-            priority:  0.0,
             overlap:   self.overlap,
             _mode:     PhantomData,
         }
@@ -176,10 +161,11 @@ impl<M: HullModeState> OutlineBuilder<M> {
         Outline {
             intensity: self.intensity,
             width:     self.width,
-            priority:  0.0,
             overlap:   self.overlap,
             color:     self.color,
             mode:      M::MODE,
+            style:     LineStyle::Solid,
+            enabled:   true,
         }
     }
 }
@@ -190,18 +176,20 @@ impl<M: OutlineModeState> From<OutlineBuilder<M>> for Outline {
             OutlineMethod::JumpFlood => Outline {
                 intensity: builder.intensity,
                 width:     builder.width,
-                priority:  builder.priority,
                 overlap:   OverlapMode::Merged,
                 color:     builder.color,
                 mode:      OutlineMethod::JumpFlood,
+                style:     LineStyle::Solid,
+                enabled:   true,
             },
             OutlineMethod::WorldHull | OutlineMethod::ScreenHull => Outline {
                 intensity: builder.intensity,
                 width:     builder.width,
-                priority:  0.0,
                 overlap:   builder.overlap,
                 color:     builder.color,
                 mode:      M::MODE,
+                style:     LineStyle::Solid,
+                enabled:   true,
             },
         }
     }
@@ -226,7 +214,6 @@ mod tests {
     #[test]
     fn mode_switches_drop_non_applicable_properties() {
         let outline = Outline::builder(4.0)
-            .with_priority(1.0)
             .to_world_hull()
             .with_overlap(OverlapMode::Individual)
             .to_jump_flood()
@@ -238,8 +225,8 @@ mod tests {
         assert_eq!(outline.mode, OutlineMethod::ScreenHull);
         assert_eq!(outline.width, 4.0);
         assert_eq!(outline.intensity, 2.0);
-        assert_eq!(outline.priority, 0.0);
         assert_eq!(outline.overlap, OverlapMode::Merged);
+        assert!(outline.enabled);
     }
 
     #[test]
@@ -252,35 +239,24 @@ mod tests {
 
         assert_eq!(outline.mode, OutlineMethod::ScreenHull);
         assert_eq!(outline.overlap, OverlapMode::Individual);
-        assert_eq!(outline.priority, 0.0);
     }
 
     #[test]
-    fn priority_survives_in_jump_flood_only() {
-        let jump_outline = Outline::builder(2.0).with_priority(7.0).build();
-        assert_eq!(jump_outline.mode, OutlineMethod::JumpFlood);
-        assert_eq!(jump_outline.priority, 7.0);
-        assert_eq!(jump_outline.overlap, OverlapMode::Merged);
-
-        let switched_outline = Outline::builder(2.0)
-            .with_priority(7.0)
-            .to_world_hull()
-            .to_jump_flood()
-            .build();
-        assert_eq!(switched_outline.mode, OutlineMethod::JumpFlood);
-        assert_eq!(switched_outline.priority, 0.0);
-        assert_eq!(switched_outline.overlap, OverlapMode::Merged);
-    }
-
-    #[test]
-    fn legacy_new_api_still_works() {
-        let outline = Outline::new(5.0)
-            .with_priority(3.0)
-            .with_mode(OutlineMethod::WorldHull);
+    fn new_api_works() {
+        let outline = Outline::new(5.0).with_mode(OutlineMethod::WorldHull);
 
         assert_eq!(outline.mode, OutlineMethod::WorldHull);
         assert_eq!(outline.width, 5.0);
-        assert_eq!(outline.priority, 3.0);
         assert_eq!(outline.overlap, OverlapMode::Merged);
+        assert!(outline.enabled);
+    }
+
+    #[test]
+    fn enabled_defaults_to_true() {
+        let outline = Outline::new(2.0);
+        assert!(outline.enabled);
+
+        let disabled = outline.with_enabled(false);
+        assert!(!disabled.enabled);
     }
 }

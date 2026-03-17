@@ -36,15 +36,10 @@ wgpu-types = "27" # must match bevy's wgpu-types version
 getrandom = { version = "0.4.2", features = ["wasm_js"] }
 
 [dev-dependencies]
-bevy = { version = "0.18.1", features = [
-  "bevy_animation",
-  "bevy_anti_alias",
-  "bevy_gltf",
-  "bevy_post_process",
-  "scene",
-] }
+bevy = { version = "0.18.1", features = ["bevy_animation", "bevy_anti_alias", "bevy_gltf", "bevy_post_process", "scene"] }
 bevy_brp_extras = "0.18.7"
 bevy_panorbit_camera = "0.34.0"
+bevy_panorbit_camera_ext = { git = "https://github.com/natepiano/bevy_panorbit_camera_ext" }
 bevy_window_manager = "0.18.3"
 
 
@@ -73,3 +68,6 @@ path = "examples/msaa.rs"
 [[example]]
 name = "benchmark"
 path = "examples/benchmark.rs"
+
+[[example]]
+name = "all_modes"

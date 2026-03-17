@@ -40,7 +40,6 @@ fn main() {
             LiminalPlugin,
             WindowManagerPlugin,
         ))
-        .init_resource::<PriorityToggle>()
         .init_resource::<OutlineModeToggle>()
         .init_resource::<OutlineWidthControl>()
         .init_resource::<OverlapControl>()
@@ -48,25 +47,11 @@ fn main() {
         .add_systems(
             Update,
             (
-                (
-                    toggle_priority,
-                    toggle_outline_mode,
-                    adjust_outline_width,
-                    adjust_overlap,
-                ),
-                update_outline_priorities,
+                (toggle_outline_mode, adjust_outline_width, adjust_overlap),
                 update_ui,
             ),
         )
         .run();
-}
-
-#[derive(Component)]
-pub struct OutlinePriority(f32);
-
-#[derive(Resource, Default)]
-struct PriorityToggle {
-    enabled: bool,
 }
 
 #[derive(Resource)]
@@ -176,7 +161,6 @@ fn setup(
             .to_world_hull()
             .with_overlap(INITIAL_HULL_OVERLAP)
             .build(),
-        OutlinePriority(1.0),
     ));
 
     commands.spawn((
@@ -189,7 +173,6 @@ fn setup(
             .to_world_hull()
             .with_overlap(INITIAL_HULL_OVERLAP)
             .build(),
-        OutlinePriority(10.0),
     ));
 
     // Non-intersecting pair: cube in front of sphere (screen overlap only)
@@ -210,7 +193,6 @@ fn setup(
             .to_world_hull()
             .with_overlap(INITIAL_HULL_OVERLAP)
             .build(),
-        OutlinePriority(10.0),
     ));
 
     commands.spawn((
@@ -223,7 +205,6 @@ fn setup(
             .to_world_hull()
             .with_overlap(INITIAL_HULL_OVERLAP)
             .build(),
-        OutlinePriority(1.0),
     ));
 }
 
@@ -245,12 +226,6 @@ fn setup_ui(mut commands: Commands) {
     ));
 }
 
-fn toggle_priority(input: Res<ButtonInput<KeyCode>>, mut priority_toggle: ResMut<PriorityToggle>) {
-    if input.just_pressed(KeyCode::KeyQ) {
-        priority_toggle.enabled = !priority_toggle.enabled;
-    }
-}
-
 fn toggle_outline_mode(
     input: Res<ButtonInput<KeyCode>>,
     width_control: Res<OutlineWidthControl>,
@@ -266,17 +241,18 @@ fn toggle_outline_mode(
         OutlineMethod::JumpFlood => OutlineMethod::WorldHull,
         OutlineMethod::WorldHull => OutlineMethod::ScreenHull,
         OutlineMethod::ScreenHull => OutlineMethod::JumpFlood,
+        _ => unreachable!(),
     };
 
     let (width, overlap) = match mode_toggle.mode {
         OutlineMethod::JumpFlood => (width_control.jump_flood_width_px, OverlapMode::Merged),
         OutlineMethod::WorldHull => (width_control.hull_width_world, overlap_control.hull_overlap),
         OutlineMethod::ScreenHull => (width_control.shell_width_px, overlap_control.shell_overlap),
+        _ => unreachable!(),
     };
 
     for mut outline in &mut outline_query {
-        *outline =
-            rebuilt_outline_for_mode(&outline, mode_toggle.mode, width, overlap, outline.priority);
+        *outline = rebuilt_outline_for_mode(&outline, mode_toggle.mode, width, overlap);
     }
 }
 
@@ -285,16 +261,16 @@ fn rebuilt_outline_for_mode(
     mode: OutlineMethod,
     width: f32,
     overlap: OverlapMode,
-    priority: f32,
 ) -> Outline {
     let base = Outline::builder(width)
         .with_intensity(current.intensity)
         .with_color(current.color);
 
     match mode {
-        OutlineMethod::JumpFlood => base.with_priority(priority).build(),
+        OutlineMethod::JumpFlood => base.build(),
         OutlineMethod::WorldHull => base.to_world_hull().with_overlap(overlap).build(),
         OutlineMethod::ScreenHull => base.to_screen_hull().with_overlap(overlap).build(),
+        _ => unreachable!(),
     }
 }
 
@@ -350,6 +326,7 @@ fn adjust_outline_width(
                 outline.width = next;
             }
         },
+        _ => unreachable!(),
     }
 }
 
@@ -372,12 +349,13 @@ fn adjust_overlap(
     let current = match mode_toggle.mode {
         OutlineMethod::WorldHull => &mut overlap_control.hull_overlap,
         OutlineMethod::ScreenHull => &mut overlap_control.shell_overlap,
-        OutlineMethod::JumpFlood => unreachable!(),
+        OutlineMethod::JumpFlood | _ => unreachable!(),
     };
 
     *current = match *current {
         OverlapMode::Merged => OverlapMode::Individual,
         OverlapMode::Individual => OverlapMode::Merged,
+        _ => unreachable!(),
     };
 
     let value = *current;
@@ -386,21 +364,7 @@ fn adjust_overlap(
     }
 }
 
-fn update_outline_priorities(
-    priority_toggle: Res<PriorityToggle>,
-    mut outline_query: Query<(&mut Outline, &OutlinePriority)>,
-) {
-    for (mut outline, priority) in &mut outline_query {
-        if priority_toggle.enabled {
-            outline.priority = priority.0;
-        } else {
-            outline.priority = 0.0;
-        }
-    }
-}
-
 fn update_ui(
-    priority_toggle: Res<PriorityToggle>,
     mode_toggle: Res<OutlineModeToggle>,
     width_control: Res<OutlineWidthControl>,
     overlap_control: Res<OverlapControl>,
@@ -410,6 +374,7 @@ fn update_ui(
         OutlineMethod::JumpFlood => "Mode: JumpFlood (M)",
         OutlineMethod::WorldHull => "Mode: WorldHull (M)",
         OutlineMethod::ScreenHull => "Mode: ScreenHull (M)",
+        _ => unreachable!(),
     };
 
     let width_line = match mode_toggle.mode {
@@ -431,13 +396,11 @@ fn update_ui(
                 width_control.shell_width_px
             )
         },
+        _ => unreachable!(),
     };
 
-    let third_line = match mode_toggle.mode {
-        OutlineMethod::JumpFlood => {
-            let priority_state = if priority_toggle.enabled { "on" } else { "off" };
-            format!("Priority: {priority_state} (Q)")
-        },
+    let overlap_line = match mode_toggle.mode {
+        OutlineMethod::JumpFlood => String::new(),
         OutlineMethod::WorldHull => {
             format!(
                 "Overlap: {} (- / +)",
@@ -450,14 +413,16 @@ fn update_ui(
                 overlap_mode_label(overlap_control.shell_overlap)
             )
         },
+        _ => unreachable!(),
     };
 
-    text_query.0 = format!("{mode_line}\n{width_line}\n{third_line}");
+    text_query.0 = format!("{mode_line}\n{width_line}\n{overlap_line}");
 }
 
 fn overlap_mode_label(mode: OverlapMode) -> &'static str {
     match mode {
         OverlapMode::Merged => "Merged",
         OverlapMode::Individual => "Individual",
+        _ => unreachable!(),
     }
 }

@@ -163,17 +163,26 @@ fn extract_outline_uniforms(
     }
 
     for (entity, outline) in &added_or_changed_outlines {
-        dirty |= extracted_outlines.upsert(
-            MainEntity::from(entity),
-            ExtractedOutline::from_main_world(entity, outline),
-        );
+        if outline.enabled {
+            dirty |= extracted_outlines.upsert(
+                MainEntity::from(entity),
+                ExtractedOutline::from_main_world(entity, outline),
+            );
+        } else {
+            dirty |= extracted_outlines
+                .by_main_entity
+                .remove(&MainEntity::from(entity))
+                .is_some();
+        }
     }
 
     for (entity, outline) in &added_mesh_outlines {
-        dirty |= extracted_outlines.upsert(
-            MainEntity::from(entity),
-            ExtractedOutline::from_main_world(entity, outline),
-        );
+        if outline.enabled {
+            dirty |= extracted_outlines.upsert(
+                MainEntity::from(entity),
+                ExtractedOutline::from_main_world(entity, outline),
+            );
+        }
     }
 
     if dirty {
@@ -319,28 +328,57 @@ impl Plugin for LiminalPlugin {
 #[require(DepthPrepass)]
 pub struct OutlineCamera;
 
-/// Adds a mesh outline effect to entity.
-/// Should be added to the entity containing the Mesh3d component.
+/// Adds a mesh outline effect to an entity with a `Mesh3d` component.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// # use bevy::prelude::*;
+/// # use bevy_liminal::Outline;
+/// # use bevy_liminal::OutlineMethod;
+/// # use bevy_liminal::OverlapMode;
+/// // Screen-space JFA outline (default, works on all geometry)
+/// commands
+///     .entity(entity)
+///     .insert(Outline::new(4.0).with_color(Color::WHITE));
+///
+/// // Hull outline for 3D meshes with per-entity overlap
+/// commands.entity(entity).insert(
+///     Outline::new(3.0)
+///         .with_color(Color::srgb(0.0, 0.8, 1.0))
+///         .with_mode(OutlineMethod::ScreenHull)
+///         .with_overlap(OverlapMode::Individual),
+/// );
+/// ```
 #[derive(Debug, Component, Reflect, Clone)]
 #[reflect(Component)]
 pub struct Outline {
-    pub intensity: f32,
+    /// Outline width. Pixels for `JumpFlood`/`ScreenHull`, world units for `WorldHull`.
     pub width:     f32,
-    pub priority:  f32,
-    pub overlap:   OverlapMode,
+    /// Outline color.
     pub color:     Color,
+    /// Multiplier applied to `color` in the shader. Values > 1.0 produce HDR glow via bloom.
+    pub intensity: f32,
+    /// Which algorithm to use. See `OutlineMethod` for guidance.
     pub mode:      OutlineMethod,
+    /// How overlapping outlines from different entities interact.
+    pub overlap:   OverlapMode,
+    /// Line style (currently only `Solid`).
+    pub style:     LineStyle,
+    /// When `false`, extraction skips this outline without removing the component.
+    pub enabled:   bool,
 }
 
 impl Outline {
     pub fn new(width: f32) -> Self {
         Self {
-            intensity: 1.0,
             width,
-            priority: 0.0,
-            overlap: OverlapMode::Merged,
             color: Color::BLACK,
+            intensity: 1.0,
             mode: OutlineMethod::JumpFlood,
+            overlap: OverlapMode::Merged,
+            style: LineStyle::Solid,
+            enabled: true,
         }
     }
 
@@ -348,18 +386,29 @@ impl Outline {
         OutlineBuilder::jump_flood(width)
     }
 
+    pub fn with_color(self, color: Color) -> Self { Self { color, ..self } }
+
     pub fn with_intensity(self, intensity: f32) -> Self { Self { intensity, ..self } }
 
-    pub fn with_priority(self, priority: f32) -> Self { Self { priority, ..self } }
-
-    pub fn with_color(self, color: Color) -> Self { Self { color, ..self } }
+    pub fn with_mode(self, mode: OutlineMethod) -> Self { Self { mode, ..self } }
 
     pub fn with_overlap(self, overlap: OverlapMode) -> Self { Self { overlap, ..self } }
 
-    pub fn with_mode(self, mode: OutlineMethod) -> Self { Self { mode, ..self } }
+    pub fn with_style(self, style: LineStyle) -> Self { Self { style, ..self } }
+
+    pub fn with_enabled(self, enabled: bool) -> Self { Self { enabled, ..self } }
 }
 
+/// Which outline algorithm to use.
+///
+/// - `JumpFlood`: Screen-space silhouette expansion. Works on **all** geometry including flat
+///   panels and UI planes. Width is in pixels.
+/// - `WorldHull`: Vertex extrusion with world-unit width. Best for 3D volumetric meshes where
+///   outline thickness should scale with distance.
+/// - `ScreenHull`: Vertex extrusion with pixel width. Best for 3D volumetric meshes where outline
+///   thickness should remain constant on screen.
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq, Default)]
+#[non_exhaustive]
 pub enum OutlineMethod {
     #[default]
     JumpFlood,
@@ -367,11 +416,21 @@ pub enum OutlineMethod {
     ScreenHull,
 }
 
+/// How overlapping outlines from different entities interact.
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq, Default)]
+#[non_exhaustive]
 pub enum OverlapMode {
     #[default]
     Merged,
     Individual,
+}
+
+/// Visual style of the outline stroke.
+#[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub enum LineStyle {
+    #[default]
+    Solid,
 }
 
 impl OverlapMode {
@@ -400,7 +459,7 @@ impl ExtractedOutline {
         ExtractedOutline {
             intensity: outline.intensity,
             width:     outline.width,
-            priority:  outline.priority,
+            priority:  0.0,
             overlap:   outline.overlap.as_shader_factor(),
             owner_id:  entity.index().index() as f32 + 1.0,
             color:     linear_color.to_vec4(),
