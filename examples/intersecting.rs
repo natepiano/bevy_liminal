@@ -58,7 +58,9 @@ fn setup(
         MeshMaterial3d(materials.add(Color::from(YELLOW))),
         Transform::from_xyz(0.0, 1.0, 0.0)
             .with_rotation(Quat::from_rotation_x(PI / 5.0) * Quat::from_rotation_y(PI / 3.0)),
-        Outline::new(10.0).with_color(Color::from(RED)),
+        Outline::jump_flood(10.0)
+            .with_color(Color::from(RED))
+            .build(),
     ));
 
     // Blue sphere with green outline
@@ -66,8 +68,9 @@ fn setup(
         Mesh3d(meshes.add(Sphere::default())),
         MeshMaterial3d(materials.add(Color::from(BLUE))),
         Transform::from_xyz(-0.5, 1.0, 0.5),
-        Outline::new(10.0)
+        Outline::jump_flood(10.0)
             .with_color(Color::from(GREEN))
-            .with_intensity(10.0),
+            .with_intensity(10.0)
+            .build(),
     ));
 }

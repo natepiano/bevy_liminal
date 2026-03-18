@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use bevy::prelude::Color;
+use bevy::prelude::Entity;
 
 use crate::LineStyle;
 use crate::Outline;
@@ -39,101 +40,51 @@ impl HullModeState for ScreenHullState {}
 
 #[derive(Debug, Clone)]
 pub struct OutlineBuilder<M: OutlineModeState> {
-    width:     f32,
-    intensity: f32,
-    color:     Color,
-    overlap:   OverlapMode,
-    _mode:     PhantomData<M>,
+    width:       f32,
+    intensity:   f32,
+    color:       Color,
+    overlap:     OverlapMode,
+    group_owner: Option<Entity>,
+    _mode:       PhantomData<M>,
+}
+
+fn defaults<M: OutlineModeState>(width: f32) -> OutlineBuilder<M> {
+    OutlineBuilder {
+        width,
+        intensity: 1.0,
+        color: Color::BLACK,
+        overlap: OverlapMode::Merged,
+        group_owner: None,
+        _mode: PhantomData,
+    }
 }
 
 impl OutlineBuilder<JumpFloodState> {
-    pub(crate) fn jump_flood(width: f32) -> Self {
-        Self {
-            intensity: 1.0,
-            width,
-            overlap: OverlapMode::Merged,
-            color: Color::BLACK,
-            _mode: PhantomData,
-        }
-    }
-
-    pub fn to_world_hull(self) -> OutlineBuilder<WorldHullState> {
-        OutlineBuilder {
-            width:     self.width,
-            intensity: self.intensity,
-            color:     self.color,
-            overlap:   OverlapMode::Merged,
-            _mode:     PhantomData,
-        }
-    }
-
-    pub fn to_screen_hull(self) -> OutlineBuilder<ScreenHullState> {
-        OutlineBuilder {
-            width:     self.width,
-            intensity: self.intensity,
-            color:     self.color,
-            overlap:   OverlapMode::Merged,
-            _mode:     PhantomData,
-        }
-    }
+    pub fn jump_flood(width: f32) -> Self { defaults(width) }
 
     pub fn build(self) -> Outline {
         Outline {
-            intensity: self.intensity,
-            width:     self.width,
-            overlap:   OverlapMode::Merged,
-            color:     self.color,
-            mode:      OutlineMethod::JumpFlood,
-            style:     LineStyle::Solid,
-            enabled:   true,
+            intensity:   self.intensity,
+            width:       self.width,
+            overlap:     OverlapMode::Merged,
+            group_owner: None,
+            color:       self.color,
+            mode:        OutlineMethod::JumpFlood,
+            style:       LineStyle::Solid,
+            enabled:     true,
         }
     }
 }
 
 impl OutlineBuilder<WorldHullState> {
-    pub fn to_jump_flood(self) -> OutlineBuilder<JumpFloodState> {
-        OutlineBuilder {
-            width:     self.width,
-            intensity: self.intensity,
-            color:     self.color,
-            overlap:   OverlapMode::Merged,
-            _mode:     PhantomData,
-        }
-    }
-
-    pub fn to_screen_hull(self) -> OutlineBuilder<ScreenHullState> {
-        OutlineBuilder {
-            width:     self.width,
-            intensity: self.intensity,
-            color:     self.color,
-            overlap:   self.overlap,
-            _mode:     PhantomData,
-        }
-    }
+    pub fn world_hull(width: f32) -> Self { defaults(width) }
 }
 
 impl OutlineBuilder<ScreenHullState> {
-    pub fn to_jump_flood(self) -> OutlineBuilder<JumpFloodState> {
-        OutlineBuilder {
-            width:     self.width,
-            intensity: self.intensity,
-            color:     self.color,
-            overlap:   OverlapMode::Merged,
-            _mode:     PhantomData,
-        }
-    }
-
-    pub fn to_world_hull(self) -> OutlineBuilder<WorldHullState> {
-        OutlineBuilder {
-            width:     self.width,
-            intensity: self.intensity,
-            color:     self.color,
-            overlap:   self.overlap,
-            _mode:     PhantomData,
-        }
-    }
+    pub fn screen_hull(width: f32) -> Self { defaults(width) }
 }
 
+/// Settings available on all outline methods.
 impl<M: OutlineModeState> OutlineBuilder<M> {
     pub fn with_width(mut self, width: f32) -> Self {
         self.width = width;
@@ -151,46 +102,28 @@ impl<M: OutlineModeState> OutlineBuilder<M> {
     }
 }
 
+/// Settings only available on hull methods (`WorldHull`, `ScreenHull`).
 impl<M: HullModeState> OutlineBuilder<M> {
     pub fn with_overlap(mut self, overlap: OverlapMode) -> Self {
         self.overlap = overlap;
         self
     }
 
+    pub fn with_group_owner(mut self, owner: Entity) -> Self {
+        self.group_owner = Some(owner);
+        self
+    }
+
     pub fn build(self) -> Outline {
         Outline {
-            intensity: self.intensity,
-            width:     self.width,
-            overlap:   self.overlap,
-            color:     self.color,
-            mode:      M::MODE,
-            style:     LineStyle::Solid,
-            enabled:   true,
-        }
-    }
-}
-
-impl<M: OutlineModeState> From<OutlineBuilder<M>> for Outline {
-    fn from(builder: OutlineBuilder<M>) -> Self {
-        match M::MODE {
-            OutlineMethod::JumpFlood => Outline {
-                intensity: builder.intensity,
-                width:     builder.width,
-                overlap:   OverlapMode::Merged,
-                color:     builder.color,
-                mode:      OutlineMethod::JumpFlood,
-                style:     LineStyle::Solid,
-                enabled:   true,
-            },
-            OutlineMethod::WorldHull | OutlineMethod::ScreenHull => Outline {
-                intensity: builder.intensity,
-                width:     builder.width,
-                overlap:   builder.overlap,
-                color:     builder.color,
-                mode:      M::MODE,
-                style:     LineStyle::Solid,
-                enabled:   true,
-            },
+            intensity:   self.intensity,
+            width:       self.width,
+            overlap:     self.overlap,
+            group_owner: self.group_owner,
+            color:       self.color,
+            mode:        M::MODE,
+            style:       LineStyle::Solid,
+            enabled:     true,
         }
     }
 }
@@ -212,51 +145,39 @@ mod tests {
     use crate::OverlapMode;
 
     #[test]
-    fn mode_switches_drop_non_applicable_properties() {
-        let outline = Outline::builder(4.0)
-            .to_world_hull()
-            .with_overlap(OverlapMode::Individual)
-            .to_jump_flood()
-            .with_intensity(2.0)
-            .to_screen_hull()
-            .with_color(Color::srgb(1.0, 0.0, 0.0))
-            .build();
+    fn jump_flood_builds_correctly() {
+        let outline = Outline::jump_flood(4.0).with_color(Color::WHITE).build();
 
-        assert_eq!(outline.mode, OutlineMethod::ScreenHull);
+        assert_eq!(outline.mode, OutlineMethod::JumpFlood);
         assert_eq!(outline.width, 4.0);
-        assert_eq!(outline.intensity, 2.0);
         assert_eq!(outline.overlap, OverlapMode::Merged);
         assert!(outline.enabled);
     }
 
     #[test]
-    fn overlap_survives_between_hull_modes() {
-        let outline = Outline::builder(3.0)
-            .to_world_hull()
-            .with_overlap(OverlapMode::Individual)
-            .to_screen_hull()
+    fn screen_hull_with_overlap() {
+        let outline = Outline::screen_hull(3.0)
+            .with_overlap(OverlapMode::PerMesh)
             .build();
 
         assert_eq!(outline.mode, OutlineMethod::ScreenHull);
-        assert_eq!(outline.overlap, OverlapMode::Individual);
+        assert_eq!(outline.width, 3.0);
+        assert_eq!(outline.overlap, OverlapMode::PerMesh);
     }
 
     #[test]
-    fn new_api_works() {
-        let outline = Outline::new(5.0).with_mode(OutlineMethod::WorldHull);
+    fn world_hull_with_grouped_overlap() {
+        let outline = Outline::world_hull(0.05)
+            .with_overlap(OverlapMode::Grouped)
+            .build();
 
         assert_eq!(outline.mode, OutlineMethod::WorldHull);
-        assert_eq!(outline.width, 5.0);
-        assert_eq!(outline.overlap, OverlapMode::Merged);
-        assert!(outline.enabled);
+        assert_eq!(outline.overlap, OverlapMode::Grouped);
     }
 
     #[test]
     fn enabled_defaults_to_true() {
-        let outline = Outline::new(2.0);
+        let outline = Outline::jump_flood(2.0).build();
         assert!(outline.enabled);
-
-        let disabled = outline.with_enabled(false);
-        assert!(!disabled.enabled);
     }
 }

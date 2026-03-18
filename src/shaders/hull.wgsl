@@ -160,7 +160,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
         // Front mesh hull over back mesh surface.
         // overlap=0.0 (Merged): fully transparent at mesh-overlap pixels.
-        // overlap=1.0 (Individual): fully opaque per-mesh overlap rendering.
+        // overlap=1.0 (Grouped/PerMesh): fully opaque per-group/per-mesh overlap rendering.
         return vec4<f32>(in.color.rgb, in.color.a * in.overlap);
     }
 

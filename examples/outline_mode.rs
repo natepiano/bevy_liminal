@@ -21,7 +21,7 @@ const INITIAL_JUMP_FLOOD_WIDTH_PX: f32 = 5.0;
 const INITIAL_HULL_WIDTH_WORLD: f32 = 0.01;
 const INITIAL_SHELL_WIDTH_PX: f32 = 2.0;
 const INITIAL_HULL_OVERLAP: OverlapMode = OverlapMode::Merged;
-const INITIAL_SHELL_OVERLAP: OverlapMode = OverlapMode::Individual;
+const INITIAL_SHELL_OVERLAP: OverlapMode = OverlapMode::PerMesh;
 
 fn main() {
     App::new()
@@ -156,9 +156,8 @@ fn setup(
         })),
         Transform::from_xyz(0.0, 1.0, 0.0)
             .with_rotation(Quat::from_rotation_x(PI / 5.0) * Quat::from_rotation_y(PI / 3.0)),
-        Outline::builder(INITIAL_HULL_WIDTH_WORLD)
+        Outline::world_hull(INITIAL_HULL_WIDTH_WORLD)
             .with_color(Color::from(RED))
-            .to_world_hull()
             .with_overlap(INITIAL_HULL_OVERLAP)
             .build(),
     ));
@@ -167,10 +166,9 @@ fn setup(
         Mesh3d(meshes.add(Sphere::default())),
         MeshMaterial3d(materials.add(Color::from(BLUE))),
         Transform::from_xyz(-0.5, 1.0, 0.5),
-        Outline::builder(INITIAL_HULL_WIDTH_WORLD)
+        Outline::world_hull(INITIAL_HULL_WIDTH_WORLD)
             .with_color(Color::from(GREEN))
             .with_intensity(10.0)
-            .to_world_hull()
             .with_overlap(INITIAL_HULL_OVERLAP)
             .build(),
     ));
@@ -187,10 +185,9 @@ fn setup(
         Mesh3d(meshes.add(Sphere::new(0.5))),
         MeshMaterial3d(non_intersect_sphere_mat),
         Transform::from_xyz(-0.75, 1.0, -7.8),
-        Outline::builder(INITIAL_HULL_WIDTH_WORLD)
+        Outline::world_hull(INITIAL_HULL_WIDTH_WORLD)
             .with_color(Color::from(GREEN))
             .with_intensity(10.0)
-            .to_world_hull()
             .with_overlap(INITIAL_HULL_OVERLAP)
             .build(),
     ));
@@ -200,9 +197,8 @@ fn setup(
         MeshMaterial3d(non_intersect_cube_mat),
         Transform::from_xyz(0.0, 1.0, -4.0)
             .with_rotation(Quat::from_rotation_x(PI / 5.0) * Quat::from_rotation_y(PI / 3.0)),
-        Outline::builder(INITIAL_HULL_WIDTH_WORLD)
+        Outline::world_hull(INITIAL_HULL_WIDTH_WORLD)
             .with_color(Color::from(RED))
-            .to_world_hull()
             .with_overlap(INITIAL_HULL_OVERLAP)
             .build(),
     ));
@@ -262,14 +258,21 @@ fn rebuilt_outline_for_mode(
     width: f32,
     overlap: OverlapMode,
 ) -> Outline {
-    let base = Outline::builder(width)
-        .with_intensity(current.intensity)
-        .with_color(current.color);
-
     match mode {
-        OutlineMethod::JumpFlood => base.build(),
-        OutlineMethod::WorldHull => base.to_world_hull().with_overlap(overlap).build(),
-        OutlineMethod::ScreenHull => base.to_screen_hull().with_overlap(overlap).build(),
+        OutlineMethod::JumpFlood => Outline::jump_flood(width)
+            .with_intensity(current.intensity)
+            .with_color(current.color)
+            .build(),
+        OutlineMethod::WorldHull => Outline::world_hull(width)
+            .with_intensity(current.intensity)
+            .with_color(current.color)
+            .with_overlap(overlap)
+            .build(),
+        OutlineMethod::ScreenHull => Outline::screen_hull(width)
+            .with_intensity(current.intensity)
+            .with_color(current.color)
+            .with_overlap(overlap)
+            .build(),
         _ => unreachable!(),
     }
 }
@@ -353,8 +356,8 @@ fn adjust_overlap(
     };
 
     *current = match *current {
-        OverlapMode::Merged => OverlapMode::Individual,
-        OverlapMode::Individual => OverlapMode::Merged,
+        OverlapMode::Merged => OverlapMode::PerMesh,
+        OverlapMode::PerMesh => OverlapMode::Merged,
         _ => unreachable!(),
     };
 
@@ -422,7 +425,7 @@ fn update_ui(
 fn overlap_mode_label(mode: OverlapMode) -> &'static str {
     match mode {
         OverlapMode::Merged => "Merged",
-        OverlapMode::Individual => "Individual",
+        OverlapMode::PerMesh => "PerMesh",
         _ => unreachable!(),
     }
 }

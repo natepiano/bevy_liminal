@@ -63,7 +63,9 @@ fn setup(
         MeshMaterial3d(materials.add(Color::from(BLUE))),
         Transform::from_xyz(0.0, 1.0, 0.0),
         // Add outline
-        Outline::new(10.0).with_color(Color::from(RED)),
+        Outline::jump_flood(10.0)
+            .with_color(Color::from(RED))
+            .build(),
         OutlineGlow {
             intensity: 20.0,
             period:    0.2,

@@ -420,21 +420,19 @@ fn random_outline_color() -> Color {
 
 fn build_outline(width: f32, outline_mode: OutlineMethod) -> Outline {
     match outline_mode {
-        OutlineMethod::JumpFlood => Outline::builder(width)
+        OutlineMethod::JumpFlood => Outline::jump_flood(width)
             .with_intensity(DEFAULT_OUTLINE_INTENSITY)
             .with_color(random_outline_color())
             .build(),
-        OutlineMethod::WorldHull => Outline::builder(width)
+        OutlineMethod::WorldHull => Outline::world_hull(width)
             .with_intensity(DEFAULT_OUTLINE_INTENSITY)
             .with_color(random_outline_color())
-            .to_world_hull()
-            .with_overlap(OverlapMode::Individual)
+            .with_overlap(OverlapMode::PerMesh)
             .build(),
-        OutlineMethod::ScreenHull => Outline::builder(width)
+        OutlineMethod::ScreenHull => Outline::screen_hull(width)
             .with_intensity(DEFAULT_OUTLINE_INTENSITY)
             .with_color(random_outline_color())
-            .to_screen_hull()
-            .with_overlap(OverlapMode::Individual)
+            .with_overlap(OverlapMode::PerMesh)
             .build(),
         _ => unreachable!(),
     }

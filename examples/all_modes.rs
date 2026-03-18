@@ -60,6 +60,12 @@ fn setup(
         base_color: Color::srgb(0.8, 0.7, 0.6),
         ..default()
     });
+    let sphere_mesh = meshes.add(Sphere::new(0.25).mesh().uv(32, 16));
+    let sphere_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(0.65, 0.55, 0.75),
+        ..default()
+    });
+
     let torus_mesh = meshes.add(
         Torus::new(0.25, 0.75)
             .mesh()
@@ -91,14 +97,21 @@ fn setup(
     for (col, &(mode, label)) in modes.iter().enumerate() {
         let x = (col as f32 - 1.0) * GRID_SPACING;
         let rotation = column_rotations[col];
-        let width = match mode {
-            OutlineMethod::WorldHull => 0.03,
-            _ => OUTLINE_WIDTH,
+        let outline = match mode {
+            OutlineMethod::JumpFlood => Outline::jump_flood(OUTLINE_WIDTH)
+                .with_color(OUTLINE_COLOR)
+                .with_intensity(OUTLINE_INTENSITY)
+                .build(),
+            OutlineMethod::WorldHull => Outline::world_hull(0.03)
+                .with_color(OUTLINE_COLOR)
+                .with_intensity(OUTLINE_INTENSITY)
+                .build(),
+            OutlineMethod::ScreenHull => Outline::screen_hull(OUTLINE_WIDTH)
+                .with_color(OUTLINE_COLOR)
+                .with_intensity(OUTLINE_INTENSITY)
+                .build(),
+            _ => unreachable!(),
         };
-        let outline = Outline::new(width)
-            .with_color(OUTLINE_COLOR)
-            .with_intensity(OUTLINE_INTENSITY)
-            .with_mode(mode);
 
         // Back row: torus
         commands
@@ -115,8 +128,12 @@ fn setup(
             ))
             .observe(on_mesh_clicked);
 
-        // Middle row: cube
-        commands
+        // Middle row: cube with child spheres on opposite faces.
+        // Default overlap is `Merged`; the toggle cycles through all 3 modes
+        // and updates `group_owner` on children to demonstrate `Grouped`.
+        let mut cube_outline = outline.clone();
+        cube_outline.overlap = OverlapMode::Grouped;
+        let cube_entity = commands
             .spawn((
                 Name::new(format!("Cube ({label})")),
                 Mesh3d(cube_mesh.clone()),
@@ -126,9 +143,36 @@ fn setup(
                     rotation,
                     ..default()
                 },
-                outline.clone(),
+                cube_outline.clone(),
             ))
-            .observe(on_mesh_clicked);
+            .observe(on_mesh_clicked)
+            .id();
+
+        let mut sphere_outline = cube_outline.clone();
+        sphere_outline.group_owner = Some(cube_entity);
+        // Sphere on +X face
+        let sphere_pos = commands
+            .spawn((
+                Name::new("Sphere +X"),
+                Mesh3d(sphere_mesh.clone()),
+                MeshMaterial3d(sphere_material.clone()),
+                Transform::from_xyz(0.5, 0.0, 0.0),
+                sphere_outline.clone(),
+            ))
+            .id();
+        // Sphere on -X face
+        let sphere_neg = commands
+            .spawn((
+                Name::new("Sphere -X"),
+                Mesh3d(sphere_mesh.clone()),
+                MeshMaterial3d(sphere_material.clone()),
+                Transform::from_xyz(-0.5, 0.0, 0.0),
+                sphere_outline.clone(),
+            ))
+            .id();
+        commands
+            .entity(cube_entity)
+            .add_children(&[sphere_pos, sphere_neg]);
 
         // Front row: spaceship
         commands
@@ -302,8 +346,9 @@ fn toggle_overlap(
     let mut new_mode = None;
     for mut outline in &mut outlines {
         let toggled = match outline.overlap {
-            OverlapMode::Merged => OverlapMode::Individual,
-            OverlapMode::Individual => OverlapMode::Merged,
+            OverlapMode::Merged => OverlapMode::Grouped,
+            OverlapMode::Grouped => OverlapMode::PerMesh,
+            OverlapMode::PerMesh => OverlapMode::Merged,
             _ => outline.overlap,
         };
         outline.overlap = toggled;
@@ -314,7 +359,8 @@ fn toggle_overlap(
         if let Ok(mut text) = label.single_mut() {
             let label_str = match mode {
                 OverlapMode::Merged => "Merged",
-                OverlapMode::Individual => "Individual",
+                OverlapMode::Grouped => "Grouped",
+                OverlapMode::PerMesh => "PerMesh",
                 _ => "Unknown",
             };
             **text = format!("Overlap: {label_str}");

@@ -330,73 +330,68 @@ pub struct OutlineCamera;
 
 /// Adds a mesh outline effect to an entity with a `Mesh3d` component.
 ///
+/// Construct via one of the three named constructors — each returns a type-safe
+/// builder that only exposes settings valid for that method.
+///
 /// # Example
 ///
 /// ```rust,no_run
 /// # use bevy::prelude::*;
 /// # use bevy_liminal::Outline;
-/// # use bevy_liminal::OutlineMethod;
 /// # use bevy_liminal::OverlapMode;
-/// // Screen-space JFA outline (default, works on all geometry)
-/// commands
-///     .entity(entity)
-///     .insert(Outline::new(4.0).with_color(Color::WHITE));
+/// // JFA — screen-space silhouette, works on all geometry
+/// Outline::jump_flood(4.0).with_color(Color::WHITE).build();
 ///
-/// // Hull outline for 3D meshes with per-entity overlap
-/// commands.entity(entity).insert(
-///     Outline::new(3.0)
-///         .with_color(Color::srgb(0.0, 0.8, 1.0))
-///         .with_mode(OutlineMethod::ScreenHull)
-///         .with_overlap(OverlapMode::Individual),
-/// );
+/// // ScreenHull — pixel-width vertex extrusion for 3D meshes
+/// Outline::screen_hull(3.0)
+///     .with_overlap(OverlapMode::PerMesh)
+///     .build();
+///
+/// // WorldHull — world-unit vertex extrusion for 3D meshes
+/// Outline::world_hull(0.05)
+///     .with_overlap(OverlapMode::Grouped)
+///     .build();
 /// ```
 #[derive(Debug, Component, Reflect, Clone)]
 #[reflect(Component)]
 pub struct Outline {
     /// Outline width. Pixels for `JumpFlood`/`ScreenHull`, world units for `WorldHull`.
-    pub width:     f32,
+    pub width:       f32,
     /// Outline color.
-    pub color:     Color,
+    pub color:       Color,
     /// Multiplier applied to `color` in the shader. Values > 1.0 produce HDR glow via bloom.
-    pub intensity: f32,
+    pub intensity:   f32,
     /// Which algorithm to use. See `OutlineMethod` for guidance.
-    pub mode:      OutlineMethod,
+    pub mode:        OutlineMethod,
     /// How overlapping outlines from different entities interact.
-    pub overlap:   OverlapMode,
+    pub overlap:     OverlapMode,
+    /// When `Grouped`, specifies which entity's ID to use as the shared owner.
+    /// All entities with the same `group_owner` merge their outlines while remaining
+    /// distinct from other groups. Set automatically by `InheritedOutline` propagation,
+    /// or manually when applying outlines to children.
+    /// Ignored for `Merged` and `PerMesh` modes.
+    pub group_owner: Option<Entity>,
     /// Line style (currently only `Solid`).
-    pub style:     LineStyle,
+    pub style:       LineStyle,
     /// When `false`, extraction skips this outline without removing the component.
-    pub enabled:   bool,
+    pub enabled:     bool,
 }
 
 impl Outline {
-    pub fn new(width: f32) -> Self {
-        Self {
-            width,
-            color: Color::BLACK,
-            intensity: 1.0,
-            mode: OutlineMethod::JumpFlood,
-            overlap: OverlapMode::Merged,
-            style: LineStyle::Solid,
-            enabled: true,
-        }
-    }
-
-    pub fn builder(width: f32) -> OutlineBuilder<JumpFloodState> {
+    /// Create a JFA outline builder. Width is in pixels.
+    pub fn jump_flood(width: f32) -> OutlineBuilder<JumpFloodState> {
         OutlineBuilder::jump_flood(width)
     }
 
-    pub fn with_color(self, color: Color) -> Self { Self { color, ..self } }
+    /// Create a screen-space hull outline builder. Width is in pixels.
+    pub fn screen_hull(width: f32) -> OutlineBuilder<ScreenHullState> {
+        OutlineBuilder::screen_hull(width)
+    }
 
-    pub fn with_intensity(self, intensity: f32) -> Self { Self { intensity, ..self } }
-
-    pub fn with_mode(self, mode: OutlineMethod) -> Self { Self { mode, ..self } }
-
-    pub fn with_overlap(self, overlap: OverlapMode) -> Self { Self { overlap, ..self } }
-
-    pub fn with_style(self, style: LineStyle) -> Self { Self { style, ..self } }
-
-    pub fn with_enabled(self, enabled: bool) -> Self { Self { enabled, ..self } }
+    /// Create a world-space hull outline builder. Width is in world units.
+    pub fn world_hull(width: f32) -> OutlineBuilder<WorldHullState> {
+        OutlineBuilder::world_hull(width)
+    }
 }
 
 /// Which outline algorithm to use.
@@ -417,12 +412,30 @@ pub enum OutlineMethod {
 }
 
 /// How overlapping outlines from different entities interact.
+///
+/// **Note:** `OverlapMode` only affects hull methods (`WorldHull`/`ScreenHull`). JFA always
+/// produces merged outlines regardless of this setting.
+///
+/// - `Merged`: Overlapping outlined meshes share a single unified silhouette outline. No outline is
+///   drawn where two outlined surfaces overlap — they merge into one shape.
+///
+/// - `Grouped`: All meshes within the same entity hierarchy (parent + children sharing a
+///   `group_owner`) merge into one outline, but that group is visually distinct from other groups.
+///   A cube with child spheres looks like one outlined unit, while a neighboring torus has its own
+///   separate outline.
+///
+/// - `PerMesh`: Every individual `Mesh3d` gets its own distinct outline boundary, even if it's a
+///   child of a larger entity. Child spheres inside a cube each show their own outline.
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub enum OverlapMode {
+    /// Overlapping outlines merge into one shared silhouette.
     #[default]
     Merged,
-    Individual,
+    /// Meshes in the same group (via `group_owner`) merge, but are distinct from other groups.
+    Grouped,
+    /// Every individual mesh gets its own outline boundary.
+    PerMesh,
 }
 
 /// Visual style of the outline stroke.
@@ -437,7 +450,8 @@ impl OverlapMode {
     pub fn as_shader_factor(self) -> f32 {
         match self {
             OverlapMode::Merged => 0.0,
-            OverlapMode::Individual => 1.0,
+            OverlapMode::Grouped => 1.0,
+            OverlapMode::PerMesh => 1.0,
         }
     }
 }
@@ -456,12 +470,16 @@ pub struct ExtractedOutline {
 impl ExtractedOutline {
     fn from_main_world(entity: Entity, outline: &Outline) -> Self {
         let linear_color: LinearRgba = outline.color.into();
+        let owner_entity = match outline.overlap {
+            OverlapMode::Grouped => outline.group_owner.unwrap_or(entity),
+            _ => entity,
+        };
         ExtractedOutline {
             intensity: outline.intensity,
             width:     outline.width,
             priority:  0.0,
             overlap:   outline.overlap.as_shader_factor(),
-            owner_id:  entity.index().index() as f32 + 1.0,
+            owner_id:  owner_entity.index().index() as f32 + 1.0,
             color:     linear_color.to_vec4(),
             mode:      outline.mode,
         }

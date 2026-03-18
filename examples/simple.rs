@@ -58,7 +58,7 @@ fn setup(
         MeshMaterial3d(materials.add(Color::from(YELLOW))),
         Transform::from_xyz(0.0, 1.0, 0.0),
         // Add outline
-        Outline::new(10.0),
+        Outline::jump_flood(10.0).build(),
     ));
 }
 
