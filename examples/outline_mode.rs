@@ -1,3 +1,5 @@
+//! Side-by-side comparison of outline methods and overlap modes.
+
 use std::f32::consts::PI;
 
 use bevy::color::palettes::css::BLUE;
@@ -7,14 +9,15 @@ use bevy::color::palettes::css::SILVER;
 use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy_brp_extras::BrpExtrasPlugin;
+use bevy_brp_extras::PortDisplay;
+use bevy_lagrange::LagrangePlugin;
+use bevy_lagrange::OrbitCam;
+use bevy_lagrange::TrackpadBehavior;
 use bevy_liminal::LiminalPlugin;
 use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
 use bevy_liminal::OutlineMethod;
 use bevy_liminal::OverlapMode;
-use bevy_panorbit_camera::PanOrbitCamera;
-use bevy_panorbit_camera::PanOrbitCameraPlugin;
-use bevy_panorbit_camera::TrackpadBehavior;
 use bevy_window_manager::WindowManagerPlugin;
 
 const INITIAL_JUMP_FLOOD_WIDTH_PX: f32 = 5.0;
@@ -35,8 +38,8 @@ fn main() {
                     }),
                     ..default()
                 }),
-            BrpExtrasPlugin::default(),
-            PanOrbitCameraPlugin,
+            BrpExtrasPlugin::default().port_in_title(PortDisplay::NonDefault),
+            LagrangePlugin,
             LiminalPlugin,
             WindowManagerPlugin,
         ))
@@ -110,7 +113,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(2.2, 1.2, 2.2).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
-        PanOrbitCamera {
+        OrbitCam {
             button_orbit: MouseButton::Middle,
             button_pan: MouseButton::Middle,
             modifier_pan: Some(KeyCode::ShiftLeft),

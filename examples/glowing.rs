@@ -1,3 +1,5 @@
+//! Emissive outlines with bloom and oscillating intensity.
+
 use bevy::color::palettes::css::BLUE;
 use bevy::color::palettes::css::RED;
 use bevy::color::palettes::css::SILVER;
@@ -84,7 +86,7 @@ fn rotate(mut query: Query<&mut Transform, With<Outline>>, time: Res<Time>) {
 
 fn oscillate_intensity(mut query: Query<(&mut Outline, &OutlineGlow)>, time: Res<Time>) {
     for (mut outline, glow) in &mut query {
-        let t = (time.elapsed_secs() / glow.period).sin() * 0.5 + 0.5; // Normalize to [0, 1]
+        let t = (time.elapsed_secs() / glow.period).sin().mul_add(0.5, 0.5); // Normalize to [0, 1]
 
         outline.intensity = glow.intensity * t;
     }

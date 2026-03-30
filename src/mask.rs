@@ -13,7 +13,7 @@ use bevy_render::render_resource::CachedRenderPipelineId;
 use bevy_render::sync_world::MainEntity;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct OutlineBatchSetKey {
+pub struct OutlineBatchSetKey {
     pub pipeline:      CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub vertex_slab:   SlabId,
@@ -31,12 +31,12 @@ impl PhaseItemBatchSetKey for OutlineBatchSetKey {
 /// single storage buffer and bind group still provide a very large performance win
 /// over per-entity buffers.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct OutlineBinKey {
+pub struct OutlineBinKey {
     pub asset_id:    UntypedAssetId,
     pub main_entity: MainEntity,
 }
 
-pub(crate) struct JfaOutlinePhase {
+pub struct JfaOutlinePhase {
     pub batch_set_key: OutlineBatchSetKey,
     pub entity:        Entity,
     pub main_entity:   MainEntity,
@@ -98,7 +98,7 @@ impl CachedRenderPipelinePhaseItem for JfaOutlinePhase {
     fn cached_pipeline(&self) -> CachedRenderPipelineId { self.batch_set_key.pipeline }
 }
 
-pub(crate) struct HullOutlinePhase {
+pub struct HullOutlinePhase {
     pub batch_set_key: OutlineBatchSetKey,
     pub entity:        Entity,
     pub main_entity:   MainEntity,

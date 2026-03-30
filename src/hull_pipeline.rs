@@ -27,6 +27,7 @@ use bevy_render::render_resource::Face;
 use bevy_render::render_resource::FragmentState;
 use bevy_render::render_resource::GpuArrayBuffer;
 use bevy_render::render_resource::RenderPipelineDescriptor;
+use bevy_render::render_resource::SamplerDescriptor;
 use bevy_render::render_resource::ShaderStages;
 use bevy_render::render_resource::SpecializedMeshPipeline;
 use bevy_render::render_resource::SpecializedMeshPipelineError;
@@ -91,7 +92,7 @@ impl FromWorld for HullPipeline {
             outline_bind_group_layout: outline_instance_bind_group_layout,
             depth_bind_group_layout,
             per_object_buffer_batch_size,
-            occlusion_sampler: render_device.create_sampler(&Default::default()),
+            occlusion_sampler: render_device.create_sampler(&SamplerDescriptor::default()),
         }
     }
 }
@@ -272,10 +273,7 @@ impl GetFullBatchData for HullPipeline {
     ) {
         let indirect_parameters = IndirectParametersCpuMetadata {
             base_output_index,
-            batch_set_index: match batch_set_index {
-                Some(batch_set_index) => u32::from(batch_set_index),
-                None => !0,
-            },
+            batch_set_index: batch_set_index.map_or(!0, u32::from),
         };
 
         if indexed {

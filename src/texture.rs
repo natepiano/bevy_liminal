@@ -30,11 +30,15 @@ pub struct FloodTextures {
 }
 
 impl FloodTextures {
-    pub fn input(&self) -> &CachedTexture { if self.flip { &self.output } else { &self.input } }
+    pub const fn input(&self) -> &CachedTexture {
+        if self.flip { &self.output } else { &self.input }
+    }
 
-    pub fn output(&self) -> &CachedTexture { if self.flip { &self.input } else { &self.output } }
+    pub const fn output(&self) -> &CachedTexture {
+        if self.flip { &self.input } else { &self.output }
+    }
 
-    pub fn flip(&mut self) { self.flip = !self.flip; }
+    pub const fn flip(&mut self) { self.flip = !self.flip; }
 }
 
 pub fn prepare_flood_textures(

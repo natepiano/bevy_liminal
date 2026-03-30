@@ -1,3 +1,5 @@
+//! Bevy plugin for rendering mesh outlines using jump-flood and hull-extrusion methods.
+
 mod compose;
 mod flood;
 mod hull_pipeline;
@@ -21,6 +23,8 @@ use bevy::pbr::SetMeshViewBindGroup;
 use bevy::pbr::SetMeshViewBindingArrayBindGroup;
 use bevy::pbr::extract_skins;
 use bevy::prelude::*;
+use bevy::scene::SceneInstanceReady;
+use bevy_kana::ToF32;
 use bevy_render::Extract;
 use bevy_render::Render;
 use bevy_render::RenderApp;
@@ -96,15 +100,22 @@ pub(crate) type DrawHull = (
 /// Derived from the extracted outline cache to gate expensive hull resources.
 #[derive(Resource, Default)]
 pub struct ActiveOutlineModes {
+    /// Whether any entity requires jump-flood outlines.
     pub has_jfa:  bool,
+    /// Whether any entity requires hull-extrusion outlines.
     pub has_hull: bool,
 }
 
+/// Render-world cache of all extracted outlines, keyed by main-world entity.
 #[derive(Resource, Default)]
 pub struct ExtractedOutlineUniforms {
+    /// Map from main-world entity to its extracted outline data.
     pub by_main_entity: MainEntityHashMap<ExtractedOutline>,
+    /// Whether any extracted outline uses the JFA method.
     pub has_jfa:        bool,
+    /// Whether any extracted outline uses a hull method.
     pub has_hull:       bool,
+    /// Largest JFA outline width across all extracted outlines.
     pub max_jfa_width:  f32,
 }
 
@@ -226,6 +237,7 @@ fn update_active_outline_modes(
 #[reflect(Component)]
 pub struct NoOutline;
 
+/// Bevy plugin that registers outline rendering systems, pipelines, and render graph nodes.
 pub struct LiminalPlugin;
 
 impl Plugin for LiminalPlugin {
@@ -236,6 +248,17 @@ impl Plugin for LiminalPlugin {
         app.register_type::<Outline>();
         app.register_type::<OutlineMethod>();
         app.register_type::<OverlapMode>();
+        app.register_type::<NoOutline>();
+
+        // Propagation observers
+        app.add_observer(propagate_outline_to_descendants);
+        app.add_observer(propagate_outline_on_child_added);
+        app.add_observer(propagate_outline_on_mesh_added);
+        app.add_observer(propagate_outline_on_scene_ready);
+        app.add_observer(remove_outline_from_descendants);
+
+        // Change detection for propagated outlines
+        app.add_systems(PostUpdate, sync_propagated_outlines);
 
         // Ensure the main pass depth texture has TEXTURE_BINDING so the compose
         // shader can sample it for correct occlusion of transmissive/transparent geometry.
@@ -356,40 +379,40 @@ pub struct OutlineCamera;
 #[reflect(Component)]
 pub struct Outline {
     /// Outline width. Pixels for `JumpFlood`/`ScreenHull`, world units for `WorldHull`.
-    pub width:       f32,
+    pub width:               f32,
     /// Outline color.
-    pub color:       Color,
+    pub color:               Color,
     /// Multiplier applied to `color` in the shader. Values > 1.0 produce HDR glow via bloom.
-    pub intensity:   f32,
+    pub intensity:           f32,
     /// Which algorithm to use. See `OutlineMethod` for guidance.
-    pub mode:        OutlineMethod,
+    pub mode:                OutlineMethod,
     /// How overlapping outlines from different entities interact.
-    pub overlap:     OverlapMode,
-    /// When `Grouped`, specifies which entity's ID to use as the shared owner.
-    /// All entities with the same `group_owner` merge their outlines while remaining
-    /// distinct from other groups. Set automatically by `InheritedOutline` propagation,
-    /// or manually when applying outlines to children.
-    /// Ignored for `Merged` and `PerMesh` modes.
-    pub group_owner: Option<Entity>,
+    pub overlap:             OverlapMode,
     /// Line style (currently only `Solid`).
-    pub style:       LineStyle,
+    pub style:               LineStyle,
     /// When `false`, extraction skips this outline without removing the component.
-    pub enabled:     bool,
+    pub enabled:             bool,
+    /// Set internally by propagation. When `Grouped`, all propagated children share this
+    /// entity's ID as the owner for overlap resolution. Not user-facing.
+    pub(crate) group_source: Option<Entity>,
 }
 
 impl Outline {
     /// Create a JFA outline builder. Width is in pixels.
-    pub fn jump_flood(width: f32) -> OutlineBuilder<JumpFloodState> {
+    #[must_use]
+    pub const fn jump_flood(width: f32) -> OutlineBuilder<JumpFloodState> {
         OutlineBuilder::jump_flood(width)
     }
 
     /// Create a screen-space hull outline builder. Width is in pixels.
-    pub fn screen_hull(width: f32) -> OutlineBuilder<ScreenHullState> {
+    #[must_use]
+    pub const fn screen_hull(width: f32) -> OutlineBuilder<ScreenHullState> {
         OutlineBuilder::screen_hull(width)
     }
 
     /// Create a world-space hull outline builder. Width is in world units.
-    pub fn world_hull(width: f32) -> OutlineBuilder<WorldHullState> {
+    #[must_use]
+    pub const fn world_hull(width: f32) -> OutlineBuilder<WorldHullState> {
         OutlineBuilder::world_hull(width)
     }
 }
@@ -405,9 +428,12 @@ impl Outline {
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub enum OutlineMethod {
+    /// Screen-space silhouette expansion via jump-flood algorithm. Width is in pixels.
     #[default]
     JumpFlood,
+    /// Vertex extrusion with world-unit width that scales with camera distance.
     WorldHull,
+    /// Vertex extrusion with pixel-unit width that stays constant on screen.
     ScreenHull,
 }
 
@@ -442,28 +468,38 @@ pub enum OverlapMode {
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub enum LineStyle {
+    /// A continuous solid stroke.
     #[default]
     Solid,
 }
 
 impl OverlapMode {
-    pub fn as_shader_factor(self) -> f32 {
+    /// Returns the shader factor for this overlap mode (0.0 for `Merged`, 1.0 otherwise).
+    #[must_use]
+    pub const fn as_shader_factor(self) -> f32 {
         match self {
-            OverlapMode::Merged => 0.0,
-            OverlapMode::Grouped => 1.0,
-            OverlapMode::PerMesh => 1.0,
+            Self::Merged => 0.0,
+            Self::Grouped | Self::PerMesh => 1.0,
         }
     }
 }
 
+/// GPU-ready outline data extracted from the main world.
 #[derive(Debug, Reflect, Clone, PartialEq)]
 pub struct ExtractedOutline {
+    /// Color multiplier for HDR glow via bloom.
     pub intensity: f32,
+    /// Outline width in pixels or world units depending on `mode`.
     pub width:     f32,
+    /// Draw priority for ordering (reserved for future use).
     pub priority:  f32,
+    /// Shader overlap factor derived from `OverlapMode`.
     pub overlap:   f32,
+    /// Unique owner ID used for per-mesh and grouped overlap resolution.
     pub owner_id:  f32,
+    /// Linear RGBA outline color as a `Vec4`.
     pub color:     Vec4,
+    /// Which outline algorithm this entity uses.
     pub mode:      OutlineMethod,
 }
 
@@ -471,15 +507,15 @@ impl ExtractedOutline {
     fn from_main_world(entity: Entity, outline: &Outline) -> Self {
         let linear_color: LinearRgba = outline.color.into();
         let owner_entity = match outline.overlap {
-            OverlapMode::Grouped => outline.group_owner.unwrap_or(entity),
+            OverlapMode::Grouped => outline.group_source.unwrap_or(entity),
             _ => entity,
         };
-        ExtractedOutline {
+        Self {
             intensity: outline.intensity,
             width:     outline.width,
             priority:  0.0,
             overlap:   outline.overlap.as_shader_factor(),
-            owner_id:  owner_entity.index().index() as f32 + 1.0,
+            owner_id:  owner_entity.index().index().to_f32() + 1.0,
             color:     linear_color.to_vec4(),
             mode:      outline.mode,
         }
@@ -501,7 +537,182 @@ fn configure_outline_camera_depth_texture(mut cameras: Query<&mut Camera3d, With
     }
 }
 
+// --- Propagation ---
+
+/// When `Outline` is added to an entity, propagate it to all descendant `Mesh3d` entities.
+/// Skips entities with `NoOutline`. Sets `group_source` for `Grouped` overlap mode.
+fn propagate_outline_to_descendants(
+    added: On<Add, Outline>,
+    outline_query: Query<&Outline>,
+    mesh_query: Query<(), (With<Mesh3d>, Without<NoOutline>)>,
+    children_query: Query<&Children>,
+    mut commands: Commands,
+) {
+    let source = added.entity;
+    let Ok(outline) = outline_query.get(source) else {
+        return;
+    };
+
+    // Don't re-propagate from entities that received their outline via propagation
+    if outline.group_source.is_some() {
+        return;
+    }
+
+    let mut propagated = outline.clone();
+    propagated.group_source = Some(source);
+
+    for descendant in children_query.iter_descendants(source) {
+        if mesh_query.contains(descendant) {
+            commands.entity(descendant).insert(propagated.clone());
+        }
+    }
+}
+
+/// When a new child is added to the hierarchy, check if any ancestor has `Outline`
+/// and propagate it. Handles glTF scene loading where children spawn after the parent.
+fn propagate_outline_on_child_added(
+    added: On<Add, ChildOf>,
+    child_mesh_query: Query<(), (With<Mesh3d>, Without<NoOutline>)>,
+    outline_query: Query<&Outline>,
+    parent_query: Query<&ChildOf>,
+    mut commands: Commands,
+) {
+    let child = added.entity;
+    if !child_mesh_query.contains(child) {
+        return;
+    }
+
+    // Walk up ancestors to find one with a source `Outline` (not propagated)
+    let mut current = child;
+    while let Ok(child_of) = parent_query.get(current) {
+        let parent = child_of.parent();
+        if let Ok(outline) = outline_query.get(parent) {
+            // Use the original source if this is a propagated outline
+            let source = outline.group_source.unwrap_or(parent);
+            let mut propagated = outline.clone();
+            propagated.group_source = Some(source);
+            commands.entity(child).insert(propagated);
+            return;
+        }
+        current = parent;
+    }
+}
+
+/// When `Mesh3d` is added to an entity, check if any ancestor has `Outline` and propagate it.
+/// Handles glTF scene loading where `Mesh3d` may be added after `ChildOf`.
+fn propagate_outline_on_mesh_added(
+    added: On<Add, Mesh3d>,
+    no_outline_query: Query<(), With<NoOutline>>,
+    outline_query: Query<&Outline>,
+    parent_query: Query<&ChildOf>,
+    existing_outline: Query<(), With<Outline>>,
+    mut commands: Commands,
+) {
+    let child = added.entity;
+    if no_outline_query.contains(child) {
+        return;
+    }
+    if existing_outline.contains(child) {
+        return;
+    }
+
+    // Walk up ancestors to find one with `Outline`
+    let mut current = child;
+    while let Ok(child_of) = parent_query.get(current) {
+        let parent = child_of.parent();
+        if let Ok(outline) = outline_query.get(parent) {
+            let source = outline.group_source.unwrap_or(parent);
+            let mut propagated = outline.clone();
+            propagated.group_source = Some(source);
+            commands.entity(child).insert(propagated);
+            return;
+        }
+        current = parent;
+    }
+}
+
+/// When a `SceneInstanceReady` fires on an entity with `Outline`, propagate to
+/// all descendant meshes. This handles the `SceneRoot` case where the scene instance
+/// entity may not have a `ChildOf` back to the entity with `Outline`.
+fn propagate_outline_on_scene_ready(
+    ready: On<SceneInstanceReady>,
+    outline_query: Query<&Outline>,
+    mesh_query: Query<(), (With<Mesh3d>, Without<NoOutline>)>,
+    children_query: Query<&Children>,
+    mut commands: Commands,
+) {
+    let source = ready.entity;
+    let Ok(outline) = outline_query.get(source) else {
+        return;
+    };
+    if outline.group_source.is_some() {
+        return;
+    }
+
+    let mut propagated = outline.clone();
+    propagated.group_source = Some(source);
+
+    for descendant in children_query.iter_descendants(source) {
+        if mesh_query.contains(descendant) {
+            commands.entity(descendant).insert(propagated.clone());
+        }
+    }
+}
+
+/// When `Outline` is removed from a source entity, remove it from all descendants.
+/// Only acts on source outlines (not propagated copies) to avoid cascading removals.
+fn remove_outline_from_descendants(
+    removed: On<Remove, Outline>,
+    outline_query: Query<&Outline>,
+    mesh_query: Query<(), With<Mesh3d>>,
+    children_query: Query<&Children>,
+    mut commands: Commands,
+) {
+    let source = removed.entity;
+
+    // Check if any descendant has a propagated outline from this source.
+    // If descendants have outlines with a different source (or no source), leave them alone.
+    for descendant in children_query.iter_descendants(source) {
+        if !mesh_query.contains(descendant) {
+            continue;
+        }
+        if let Ok(desc_outline) = outline_query.get(descendant)
+            && desc_outline.group_source == Some(source)
+        {
+            commands.entity(descendant).try_remove::<Outline>();
+        }
+    }
+}
+
+/// When a source `Outline` changes, update all descendant copies.
+fn sync_propagated_outlines(
+    changed_outlines: Query<(Entity, &Outline, &Children), Changed<Outline>>,
+    mesh_query: Query<(), (With<Mesh3d>, Without<NoOutline>)>,
+    children_query: Query<&Children>,
+    mut outline_mut: Query<&mut Outline, Without<Children>>,
+) {
+    for (source, outline, _children) in &changed_outlines {
+        // Only sync outlines that are sources (no group_source means this is the original)
+        if outline.group_source.is_some() {
+            continue;
+        }
+
+        let mut propagated = outline.clone();
+        propagated.group_source = Some(source);
+
+        for descendant in children_query.iter_descendants(source) {
+            if mesh_query.contains(descendant)
+                && let Ok(mut desc_outline) = outline_mut.get_mut(descendant)
+            {
+                *desc_outline = propagated.clone();
+            }
+        }
+    }
+}
+
+/// Render graph label for the outline pass.
 #[derive(Copy, Clone, Debug, RenderLabel, Hash, PartialEq, Eq)]
 pub enum OutlineRenderGraphNode {
+    /// The main outline render node that runs mask, flood, hull, and compose sub-passes.
     OutlineNode,
 }

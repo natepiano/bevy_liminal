@@ -52,7 +52,7 @@ pub struct MeshMaskPipeline {
 
 impl FromWorld for MeshMaskPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let render_device = world.resource::<RenderDevice>();
 
         let outline_instance_bind_group_layout = BindGroupLayoutDescriptor::new(
             "OutlineInstance",
@@ -286,10 +286,7 @@ impl GetFullBatchData for MeshMaskPipeline {
     ) {
         let indirect_parameters = IndirectParametersCpuMetadata {
             base_output_index,
-            batch_set_index: match batch_set_index {
-                Some(batch_set_index) => u32::from(batch_set_index),
-                None => !0,
-            },
+            batch_set_index: batch_set_index.map_or(!0, u32::from),
         };
 
         if indexed {

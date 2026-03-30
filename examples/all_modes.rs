@@ -1,19 +1,21 @@
+//! @generated `bevy_example_template`
+//! Interactive gallery of all outline methods applied to various mesh types.
+
 use std::time::Duration;
 
 use bevy::picking::mesh_picking::MeshPickingPlugin;
 use bevy::prelude::*;
-use bevy::scene::SceneInstanceReady;
 use bevy_brp_extras::BrpExtrasPlugin;
+use bevy_brp_extras::PortDisplay;
+use bevy_lagrange::LagrangePlugin;
+use bevy_lagrange::OrbitCam;
+use bevy_lagrange::TrackpadBehavior;
+use bevy_lagrange::ZoomToFit;
 use bevy_liminal::LiminalPlugin;
 use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
 use bevy_liminal::OutlineMethod;
 use bevy_liminal::OverlapMode;
-use bevy_panorbit_camera::PanOrbitCamera;
-use bevy_panorbit_camera::PanOrbitCameraPlugin;
-use bevy_panorbit_camera::TrackpadBehavior;
-use bevy_panorbit_camera_ext::PanOrbitCameraExtPlugin;
-use bevy_panorbit_camera_ext::ZoomToFit;
 use bevy_window_manager::WindowManagerPlugin;
 
 const OUTLINE_WIDTH: f32 = 4.0;
@@ -28,18 +30,12 @@ const ZOOM_DURATION_MS: u64 = 1000;
 #[derive(Resource)]
 struct SceneBounds(Entity);
 
-#[derive(Component)]
-struct ApplyOutlineOnReady {
-    outline: Outline,
-}
-
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            PanOrbitCameraPlugin,
-            PanOrbitCameraExtPlugin,
-            BrpExtrasPlugin::default(),
+            LagrangePlugin,
+            BrpExtrasPlugin::default().port_in_title(PortDisplay::NonDefault),
             WindowManagerPlugin,
             MeshPickingPlugin,
             LiminalPlugin,
@@ -49,6 +45,7 @@ fn main() {
         .run();
 }
 
+#[allow(clippy::too_many_lines)]
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -95,6 +92,7 @@ fn setup(
 
     // 3x3 grid: rows are back→front (torus, cube, spaceship), columns are outline methods
     for (col, &(mode, label)) in modes.iter().enumerate() {
+        #[allow(clippy::cast_precision_loss)]
         let x = (col as f32 - 1.0) * GRID_SPACING;
         let rotation = column_rotations[col];
         let outline = match mode {
@@ -129,11 +127,8 @@ fn setup(
             .observe(on_mesh_clicked);
 
         // Middle row: cube with child spheres on opposite faces.
-        // Default overlap is `Merged`; the toggle cycles through all 3 modes
-        // and updates `group_owner` on children to demonstrate `Grouped`.
-        let mut cube_outline = outline.clone();
-        cube_outline.overlap = OverlapMode::Grouped;
-        let cube_entity = commands
+        // Outline propagates to children automatically.
+        commands
             .spawn((
                 Name::new(format!("Cube ({label})")),
                 Mesh3d(cube_mesh.clone()),
@@ -143,38 +138,25 @@ fn setup(
                     rotation,
                     ..default()
                 },
-                cube_outline.clone(),
+                outline.clone(),
             ))
             .observe(on_mesh_clicked)
-            .id();
+            .with_children(|parent| {
+                parent.spawn((
+                    Name::new("Sphere +X"),
+                    Mesh3d(sphere_mesh.clone()),
+                    MeshMaterial3d(sphere_material.clone()),
+                    Transform::from_xyz(0.5, 0.0, 0.0),
+                ));
+                parent.spawn((
+                    Name::new("Sphere -X"),
+                    Mesh3d(sphere_mesh.clone()),
+                    MeshMaterial3d(sphere_material.clone()),
+                    Transform::from_xyz(-0.5, 0.0, 0.0),
+                ));
+            });
 
-        let mut sphere_outline = cube_outline.clone();
-        sphere_outline.group_owner = Some(cube_entity);
-        // Sphere on +X face
-        let sphere_pos = commands
-            .spawn((
-                Name::new("Sphere +X"),
-                Mesh3d(sphere_mesh.clone()),
-                MeshMaterial3d(sphere_material.clone()),
-                Transform::from_xyz(0.5, 0.0, 0.0),
-                sphere_outline.clone(),
-            ))
-            .id();
-        // Sphere on -X face
-        let sphere_neg = commands
-            .spawn((
-                Name::new("Sphere -X"),
-                Mesh3d(sphere_mesh.clone()),
-                MeshMaterial3d(sphere_material.clone()),
-                Transform::from_xyz(-0.5, 0.0, 0.0),
-                sphere_outline.clone(),
-            ))
-            .id();
-        commands
-            .entity(cube_entity)
-            .add_children(&[sphere_pos, sphere_neg]);
-
-        // Front row: spaceship
+        // Front row: spaceship — outline propagates to glTF children automatically
         commands
             .spawn((
                 Name::new(format!("Spaceship ({label})")),
@@ -184,11 +166,8 @@ fn setup(
                     rotation,
                     scale: Vec3::splat(SPACESHIP_SCALE),
                 },
-                ApplyOutlineOnReady {
-                    outline: outline.clone(),
-                },
+                outline.clone(),
             ))
-            .observe(on_scene_ready)
             .observe(on_mesh_clicked);
 
         // Column label
@@ -231,7 +210,7 @@ fn setup(
     // Camera
     commands.spawn((
         OutlineCamera,
-        PanOrbitCamera {
+        OrbitCam {
             button_orbit: MouseButton::Middle,
             button_pan: MouseButton::Middle,
             modifier_pan: Some(KeyCode::ShiftLeft),
@@ -286,25 +265,6 @@ fn setup(
     ));
 }
 
-fn on_scene_ready(
-    ready: On<SceneInstanceReady>,
-    parent_query: Query<&ApplyOutlineOnReady>,
-    mesh_query: Query<(), With<Mesh3d>>,
-    children_query: Query<&Children>,
-    mut commands: Commands,
-) {
-    let Ok(apply) = parent_query.get(ready.entity) else {
-        return;
-    };
-    let outline = apply.outline.clone();
-
-    for descendant in children_query.iter_descendants(ready.entity) {
-        if mesh_query.contains(descendant) {
-            commands.entity(descendant).insert(outline.clone());
-        }
-    }
-}
-
 fn on_mesh_clicked(click: On<Pointer<Click>>, mut commands: Commands) {
     if click.button != PointerButton::Primary {
         return;
@@ -355,15 +315,15 @@ fn toggle_overlap(
         new_mode = Some(toggled);
     }
 
-    if let Some(mode) = new_mode {
-        if let Ok(mut text) = label.single_mut() {
-            let label_str = match mode {
-                OverlapMode::Merged => "Merged",
-                OverlapMode::Grouped => "Grouped",
-                OverlapMode::PerMesh => "PerMesh",
-                _ => "Unknown",
-            };
-            **text = format!("Overlap: {label_str}");
-        }
+    if let Some(mode) = new_mode
+        && let Ok(mut text) = label.single_mut()
+    {
+        let label_str = match mode {
+            OverlapMode::Merged => "Merged",
+            OverlapMode::Grouped => "Grouped",
+            OverlapMode::PerMesh => "PerMesh",
+            _ => "Unknown",
+        };
+        **text = format!("Overlap: {label_str}");
     }
 }

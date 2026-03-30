@@ -1,3 +1,5 @@
+//! Outlines on overlapping meshes with depth-aware rendering.
+
 use std::f32::consts::PI;
 
 use bevy::color::palettes::css::BLUE;

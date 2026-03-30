@@ -25,7 +25,7 @@ impl From<&ExtractedOutline> for OutlineUniform {
             OutlineMethod::ScreenHull => 1.0,
             _ => 0.0,
         };
-        OutlineUniform {
+        Self {
             intensity:     outline.intensity,
             width:         outline.width,
             priority:      outline.priority,

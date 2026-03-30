@@ -537,15 +537,14 @@ dependencies = [
 
 [[package]]
 name = "bevy_brp_extras"
-version = "0.18.7"
+version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b3552a5537d0e8c6f14474297e6307e13449a9b1e32ae4c5a657e20da51fd49"
+checksum = "b18cf96aca02864c841de224a05d0325e3a7b0ef3f35fcd8345631101685463e"
 dependencies = [
  "bevy",
  "bevy_remote",
  "serde",
  "serde_json",
- "smol_str",
  "strum",
  "strum_macros",
  "thiserror 2.0.17",
@@ -958,6 +957,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_kana"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "883d381be67b1cdb1cb8378e3d34783fee92433a956b9befd134599293138aa9"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
+name = "bevy_lagrange"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60ebdf8bc7343201a70f6a7bf942d78733d22147086ecc4527f8314cdbb54eb4"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "bevy_light"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -980,12 +997,12 @@ dependencies = [
 
 [[package]]
 name = "bevy_liminal"
-version = "0.3.0"
+version = "0.0.1"
 dependencies = [
  "bevy",
  "bevy_brp_extras",
- "bevy_panorbit_camera",
- "bevy_panorbit_camera_ext",
+ "bevy_kana",
+ "bevy_lagrange",
  "bevy_render",
  "bevy_window_manager",
  "bytemuck",
@@ -1077,24 +1094,6 @@ name = "bevy_mikktspace"
 version = "0.17.0-dev"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ef8e4b7e61dfe7719bb03c884dc270cd46a82efb40f93e9933b990c5c190c59"
-
-[[package]]
-name = "bevy_panorbit_camera"
-version = "0.34.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec2a3ef5147368953aecb485e6362ea0e23acbd3e4adb02e47058a8c16e9bfe5"
-dependencies = [
- "bevy",
-]
-
-[[package]]
-name = "bevy_panorbit_camera_ext"
-version = "0.1.0"
-source = "git+https://github.com/natepiano/bevy_panorbit_camera_ext#e5e6a6bffa5eb6c1cb8a36d6e66192c858aa4547"
-dependencies = [
- "bevy",
- "bevy_panorbit_camera",
-]
 
 [[package]]
 name = "bevy_pbr"
@@ -2696,7 +2695,7 @@ dependencies = [
  "vec_map",
  "wasm-bindgen",
  "web-sys",
- "windows 0.58.0",
+ "windows 0.62.2",
 ]
 
 [[package]]

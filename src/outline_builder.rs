@@ -1,25 +1,29 @@
 use std::marker::PhantomData;
 
 use bevy::prelude::Color;
-use bevy::prelude::Entity;
 
 use crate::LineStyle;
 use crate::Outline;
 use crate::OutlineMethod;
 use crate::OverlapMode;
 
+/// Sealed trait implemented by outline mode type-state markers.
 pub trait OutlineModeState: private::Sealed {
     const MODE: OutlineMethod;
 }
 
+/// Marker trait for hull-based outline modes (`WorldHull`, `ScreenHull`).
 pub trait HullModeState: OutlineModeState {}
 
+/// Type-state marker for the jump-flood outline method.
 #[derive(Debug, Clone, Copy)]
 pub struct JumpFloodState;
 
+/// Type-state marker for the world-space hull outline method.
 #[derive(Debug, Clone, Copy)]
 pub struct WorldHullState;
 
+/// Type-state marker for the screen-space hull outline method.
 #[derive(Debug, Clone, Copy)]
 pub struct ScreenHullState;
 
@@ -38,65 +42,78 @@ impl OutlineModeState for ScreenHullState {
 impl HullModeState for WorldHullState {}
 impl HullModeState for ScreenHullState {}
 
+/// Type-safe builder for constructing an `Outline` component.
 #[derive(Debug, Clone)]
 pub struct OutlineBuilder<M: OutlineModeState> {
-    width:       f32,
-    intensity:   f32,
-    color:       Color,
-    overlap:     OverlapMode,
-    group_owner: Option<Entity>,
-    _mode:       PhantomData<M>,
+    width:     f32,
+    intensity: f32,
+    color:     Color,
+    overlap:   OverlapMode,
+    _mode:     PhantomData<M>,
 }
 
-fn defaults<M: OutlineModeState>(width: f32) -> OutlineBuilder<M> {
+const fn defaults<M: OutlineModeState>(width: f32) -> OutlineBuilder<M> {
     OutlineBuilder {
         width,
         intensity: 1.0,
         color: Color::BLACK,
         overlap: OverlapMode::Merged,
-        group_owner: None,
         _mode: PhantomData,
     }
 }
 
 impl OutlineBuilder<JumpFloodState> {
-    pub fn jump_flood(width: f32) -> Self { defaults(width) }
+    /// Create a new jump-flood outline builder with the given pixel width.
+    #[must_use]
+    pub const fn jump_flood(width: f32) -> Self { defaults(width) }
 
-    pub fn build(self) -> Outline {
+    /// Consume the builder and produce a configured `Outline` component.
+    #[must_use]
+    pub const fn build(self) -> Outline {
         Outline {
-            intensity:   self.intensity,
-            width:       self.width,
-            overlap:     OverlapMode::Merged,
-            group_owner: None,
-            color:       self.color,
-            mode:        OutlineMethod::JumpFlood,
-            style:       LineStyle::Solid,
-            enabled:     true,
+            intensity:    self.intensity,
+            width:        self.width,
+            overlap:      OverlapMode::Merged,
+            group_source: None,
+            color:        self.color,
+            mode:         OutlineMethod::JumpFlood,
+            style:        LineStyle::Solid,
+            enabled:      true,
         }
     }
 }
 
 impl OutlineBuilder<WorldHullState> {
-    pub fn world_hull(width: f32) -> Self { defaults(width) }
+    /// Create a new world-space hull outline builder with the given world-unit width.
+    #[must_use]
+    pub const fn world_hull(width: f32) -> Self { defaults(width) }
 }
 
 impl OutlineBuilder<ScreenHullState> {
-    pub fn screen_hull(width: f32) -> Self { defaults(width) }
+    /// Create a new screen-space hull outline builder with the given pixel width.
+    #[must_use]
+    pub const fn screen_hull(width: f32) -> Self { defaults(width) }
 }
 
 /// Settings available on all outline methods.
 impl<M: OutlineModeState> OutlineBuilder<M> {
-    pub fn with_width(mut self, width: f32) -> Self {
+    /// Override the outline width.
+    #[must_use]
+    pub const fn with_width(mut self, width: f32) -> Self {
         self.width = width;
         self
     }
 
-    pub fn with_intensity(mut self, intensity: f32) -> Self {
+    /// Set the color intensity multiplier (values > 1.0 produce HDR glow).
+    #[must_use]
+    pub const fn with_intensity(mut self, intensity: f32) -> Self {
         self.intensity = intensity;
         self
     }
 
-    pub fn with_color(mut self, color: Color) -> Self {
+    /// Set the outline color.
+    #[must_use]
+    pub const fn with_color(mut self, color: Color) -> Self {
         self.color = color;
         self
     }
@@ -104,26 +121,25 @@ impl<M: OutlineModeState> OutlineBuilder<M> {
 
 /// Settings only available on hull methods (`WorldHull`, `ScreenHull`).
 impl<M: HullModeState> OutlineBuilder<M> {
-    pub fn with_overlap(mut self, overlap: OverlapMode) -> Self {
+    /// Set the overlap mode for hull outlines.
+    #[must_use]
+    pub const fn with_overlap(mut self, overlap: OverlapMode) -> Self {
         self.overlap = overlap;
         self
     }
 
-    pub fn with_group_owner(mut self, owner: Entity) -> Self {
-        self.group_owner = Some(owner);
-        self
-    }
-
-    pub fn build(self) -> Outline {
+    /// Consume the builder and produce a configured `Outline` component.
+    #[must_use]
+    pub const fn build(self) -> Outline {
         Outline {
-            intensity:   self.intensity,
-            width:       self.width,
-            overlap:     self.overlap,
-            group_owner: self.group_owner,
-            color:       self.color,
-            mode:        M::MODE,
-            style:       LineStyle::Solid,
-            enabled:     true,
+            intensity:    self.intensity,
+            width:        self.width,
+            overlap:      self.overlap,
+            color:        self.color,
+            mode:         M::MODE,
+            style:        LineStyle::Solid,
+            enabled:      true,
+            group_source: None,
         }
     }
 }
@@ -149,7 +165,7 @@ mod tests {
         let outline = Outline::jump_flood(4.0).with_color(Color::WHITE).build();
 
         assert_eq!(outline.mode, OutlineMethod::JumpFlood);
-        assert_eq!(outline.width, 4.0);
+        assert!((outline.width - 4.0).abs() < f32::EPSILON);
         assert_eq!(outline.overlap, OverlapMode::Merged);
         assert!(outline.enabled);
     }
@@ -161,7 +177,7 @@ mod tests {
             .build();
 
         assert_eq!(outline.mode, OutlineMethod::ScreenHull);
-        assert_eq!(outline.width, 3.0);
+        assert!((outline.width - 3.0).abs() < f32::EPSILON);
         assert_eq!(outline.overlap, OverlapMode::PerMesh);
     }
 

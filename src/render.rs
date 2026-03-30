@@ -42,12 +42,13 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOutlineBindGroup<I> {
     ) -> RenderCommandResult {
         let outline_bind_group = outline_bind_group.into_inner();
 
-        if let Some(ref bind_group) = outline_bind_group.0 {
-            pass.set_bind_group(I, bind_group, &[]);
-            RenderCommandResult::Success
-        } else {
-            RenderCommandResult::Skip
-        }
+        outline_bind_group
+            .0
+            .as_ref()
+            .map_or(RenderCommandResult::Skip, |bind_group| {
+                pass.set_bind_group(I, bind_group, &[]);
+                RenderCommandResult::Success
+            })
     }
 }
 
@@ -89,8 +90,7 @@ pub fn prepare_outline_buffer(
                     let outline_uniform = extracted_outlines
                         .by_main_entity
                         .get(&main_entity)
-                        .map(OutlineUniform::from)
-                        .unwrap_or(OutlineUniform::zeroed());
+                        .map_or_else(OutlineUniform::zeroed, OutlineUniform::from);
                     outline_buffer.0.push(outline_uniform);
                 }
             }
@@ -113,8 +113,7 @@ pub fn prepare_outline_buffer(
                 let outline_uniform = extracted_outlines
                     .by_main_entity
                     .get(&main_entity)
-                    .map(OutlineUniform::from)
-                    .unwrap_or(OutlineUniform::zeroed());
+                    .map_or_else(OutlineUniform::zeroed, OutlineUniform::from);
                 outline_buffer.0.push(outline_uniform);
             }
         }
@@ -133,8 +132,7 @@ pub fn prepare_outline_buffer(
                 let outline_uniform = extracted_outlines
                     .by_main_entity
                     .get(&main_entity)
-                    .map(OutlineUniform::from)
-                    .unwrap_or(OutlineUniform::zeroed());
+                    .map_or_else(OutlineUniform::zeroed, OutlineUniform::from);
                 outline_buffer.0.push(outline_uniform);
             }
         }
@@ -183,12 +181,13 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetHullOutlineBindGroup<
     ) -> RenderCommandResult {
         let outline_bind_group = outline_bind_group.into_inner();
 
-        if let Some(ref bind_group) = outline_bind_group.0 {
-            pass.set_bind_group(I, bind_group, &[]);
-            RenderCommandResult::Success
-        } else {
-            RenderCommandResult::Skip
-        }
+        outline_bind_group
+            .0
+            .as_ref()
+            .map_or(RenderCommandResult::Skip, |bind_group| {
+                pass.set_bind_group(I, bind_group, &[]);
+                RenderCommandResult::Success
+            })
     }
 }
 
@@ -273,8 +272,7 @@ pub fn prepare_hull_outline_buffer(
                     let outline_uniform = extracted_outlines
                         .by_main_entity
                         .get(&main_entity)
-                        .map(OutlineUniform::from)
-                        .unwrap_or(OutlineUniform::zeroed());
+                        .map_or_else(OutlineUniform::zeroed, OutlineUniform::from);
                     outline_buffer.0.push(outline_uniform);
                 }
             }
@@ -293,8 +291,7 @@ pub fn prepare_hull_outline_buffer(
                 let outline_uniform = extracted_outlines
                     .by_main_entity
                     .get(&main_entity)
-                    .map(OutlineUniform::from)
-                    .unwrap_or(OutlineUniform::zeroed());
+                    .map_or_else(OutlineUniform::zeroed, OutlineUniform::from);
                 outline_buffer.0.push(outline_uniform);
             }
         }
@@ -312,8 +309,7 @@ pub fn prepare_hull_outline_buffer(
                 let outline_uniform = extracted_outlines
                     .by_main_entity
                     .get(&main_entity)
-                    .map(OutlineUniform::from)
-                    .unwrap_or(OutlineUniform::zeroed());
+                    .map_or_else(OutlineUniform::zeroed, OutlineUniform::from);
                 outline_buffer.0.push(outline_uniform);
             }
         }

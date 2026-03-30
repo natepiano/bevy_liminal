@@ -83,7 +83,7 @@ pub fn queue_outline(
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
-        for &(render_entity, main_entity) in visible_entities.get::<Mesh3d>().iter() {
+        for &(render_entity, main_entity) in visible_entities.get::<Mesh3d>() {
             if !extracted_outlines.by_main_entity.contains_key(&main_entity) {
                 continue;
             }
@@ -187,12 +187,14 @@ pub fn queue_hull_outline(
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
         }
 
-        for &(render_entity, main_entity) in visible_entities.get::<Mesh3d>().iter() {
+        for &(render_entity, main_entity) in visible_entities.get::<Mesh3d>() {
             let Some(outline) = extracted_outlines.by_main_entity.get(&main_entity) else {
                 continue;
             };
-            if outline.mode != OutlineMethod::WorldHull && outline.mode != OutlineMethod::ScreenHull
-            {
+            if !matches!(
+                outline.mode,
+                OutlineMethod::WorldHull | OutlineMethod::ScreenHull
+            ) {
                 continue;
             }
 

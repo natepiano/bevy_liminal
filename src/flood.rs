@@ -123,9 +123,9 @@ impl FromWorld for JumpFloodPipeline {
                 });
 
         let render_queue = world.resource::<RenderQueue>();
-        let mut uniform_buffer = DynamicUniformBuffer::new_with_alignment(
-            render_device.limits().min_uniform_buffer_offset_alignment as u64,
-        );
+        let mut uniform_buffer = DynamicUniformBuffer::new_with_alignment(u64::from(
+            render_device.limits().min_uniform_buffer_offset_alignment,
+        ));
         let mut offsets = Vec::new();
         for bit in 0..32 {
             offsets.push(uniform_buffer.push(&JumpFloodUniform {
@@ -165,7 +165,7 @@ impl<'w> JumpFloodPass<'w> {
 
     #[allow(clippy::too_many_arguments)]
     pub fn execute(
-        &mut self,
+        &self,
         render_context: &mut RenderContext<'_>,
         input: &CachedTexture,
         output: &CachedTexture,
@@ -173,6 +173,9 @@ impl<'w> JumpFloodPass<'w> {
         appearance_texture: &TextureView,
         size: u32,
     ) {
+        let Some(lookup_binding) = self.pipeline.lookup_buffer.binding() else {
+            return;
+        };
         let bind_group = render_context.render_device().create_bind_group(
             "outline_jump_flood_bind_group",
             &self
@@ -181,7 +184,7 @@ impl<'w> JumpFloodPass<'w> {
             &BindGroupEntries::sequential((
                 &input.default_view,
                 &self.pipeline.sampler,
-                self.pipeline.lookup_buffer.binding().unwrap(),
+                lookup_binding,
                 depth_texture,
                 appearance_texture,
             )),

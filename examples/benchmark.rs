@@ -1,3 +1,11 @@
+//! Performance benchmark spawning many outlined meshes with FPS tracking.
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::too_many_lines
+)]
+
 use std::env;
 use std::fmt::Write as FmtWrite;
 use std::fs::File;
@@ -13,6 +21,7 @@ use bevy::prelude::*;
 use bevy::window::PresentMode;
 use bevy::winit::WinitSettings;
 use bevy_brp_extras::BrpExtrasPlugin;
+use bevy_brp_extras::PortDisplay;
 use bevy_liminal::LiminalPlugin;
 use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
@@ -34,7 +43,7 @@ fn main() {
             ..default()
         }))
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
-        .add_plugins(BrpExtrasPlugin::default())
+        .add_plugins(BrpExtrasPlugin::default().port_in_title(PortDisplay::NonDefault))
         .add_plugins(LiminalPlugin)
         .add_plugins(WindowManagerPlugin)
         .insert_resource(WinitSettings::continuous())
@@ -589,8 +598,12 @@ fn benchmark_tick(mut params: BenchmarkTickParams<'_, '_>) {
                 SCENARIOS.len()
             );
 
-            let (camera_transform, projection) = params.camera_query.single().unwrap();
-            let window = params.windows.single().unwrap();
+            let Ok((camera_transform, projection)) = params.camera_query.single() else {
+                return;
+            };
+            let Ok(window) = params.windows.single() else {
+                return;
+            };
             let viewport = compute_viewport_info(camera_transform, projection, window);
 
             spawn_scenario(
@@ -764,12 +777,12 @@ fn update_hud(
 
     let live_fps = diagnostics
         .get(&FrameTimeDiagnosticsPlugin::FPS)
-        .and_then(|d| d.smoothed())
+        .and_then(bevy::diagnostic::Diagnostic::smoothed)
         .unwrap_or(0.0);
 
     let live_frame_time = diagnostics
         .get(&FrameTimeDiagnosticsPlugin::FRAME_TIME)
-        .and_then(|d| d.smoothed())
+        .and_then(bevy::diagnostic::Diagnostic::smoothed)
         .unwrap_or(0.0);
 
     let phase_info = match state.phase {
@@ -807,7 +820,9 @@ fn update_hud(
     // +1 for the space after the label
     let col = max_label_len + 1;
 
-    let bench_stats = if !state.frame_times.is_empty() {
+    let bench_stats = if state.frame_times.is_empty() {
+        String::new()
+    } else {
         let sum: f64 = state.frame_times.iter().sum();
         let avg_ms = sum / state.frame_times.len() as f64;
         let avg_fps = MS_PER_SECOND / avg_ms;
@@ -815,8 +830,6 @@ fn update_hud(
             "\n{:<col$}FPS: {avg_fps:<4.0}  Frame: {avg_ms:.2}ms",
             "Bench:",
         )
-    } else {
-        String::new()
     };
 
     let outline_mode_name = outline_mode_label(state.outline_mode);

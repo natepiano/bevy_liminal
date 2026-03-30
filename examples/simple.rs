@@ -1,3 +1,5 @@
+//! Basic outline on a rotating mesh with adjustable width.
+
 use bevy::color::palettes::css::SILVER;
 use bevy::color::palettes::css::YELLOW;
 use bevy::input::keyboard::KeyboardInput;
@@ -110,8 +112,5 @@ fn update_width_display(
     mut text_query: Single<&mut Text, With<WidthText>>,
 ) {
     let width = outline_query.width;
-    text_query.0 = format!(
-        "Decrease width (Q)\nIncrease width (W)\nCurrent width: {:.1}",
-        width
-    );
+    text_query.0 = format!("Decrease width (Q)\nIncrease width (W)\nCurrent width: {width:.1}");
 }

@@ -8,7 +8,6 @@ use bevy::render::render_resource::PipelineCache;
 use bevy::render::render_resource::RenderPipelineDescriptor;
 use bevy::render::render_resource::binding_types::sampler;
 use bevy::render::render_resource::binding_types::texture_2d;
-use bevy::render::renderer::RenderDevice;
 use bevy::shader::ShaderDefVal;
 use bevy_render::render_resource::binding_types::texture_2d_multisampled;
 use bevy_render::render_resource::binding_types::texture_depth_2d;
@@ -35,8 +34,6 @@ pub struct ComposeOutputPipeline {
 
 impl FromWorld for ComposeOutputPipeline {
     fn from_world(world: &mut World) -> Self {
-        let _render_device = world.resource::<RenderDevice>();
-
         let layout = BindGroupLayoutDescriptor::new(
             "outline_compose_output_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
@@ -91,7 +88,7 @@ impl FromWorld for ComposeOutputPipeline {
                 shader:      COMPOSE_SHADER_HANDLE,
                 shader_defs: vec![],
                 entry_point: Some("fragment".into()),
-                targets:     vec![target.clone()],
+                targets:     vec![target],
             }),
             primitive:                        PrimitiveState::default(),
             depth_stencil:                    None,
@@ -101,22 +98,23 @@ impl FromWorld for ComposeOutputPipeline {
         };
 
         let mut hdr_descriptor = descriptor.clone();
-        hdr_descriptor.fragment.as_mut().unwrap().targets = vec![hdr_target.clone()];
+        if let Some(fragment) = hdr_descriptor.fragment.as_mut() {
+            fragment.targets = vec![hdr_target.clone()];
+        }
 
         let multisampled_def = ShaderDefVal::Bool("MULTISAMPLED".into(), true);
 
         let mut msaa_descriptor = descriptor.clone();
         msaa_descriptor.label = Some("outline_compose_output_pipeline_msaa".into());
         msaa_descriptor.layout = vec![msaa_layout.clone()];
-        msaa_descriptor
-            .fragment
-            .as_mut()
-            .unwrap()
-            .shader_defs
-            .push(multisampled_def.clone());
+        if let Some(fragment) = msaa_descriptor.fragment.as_mut() {
+            fragment.shader_defs.push(multisampled_def);
+        }
 
         let mut msaa_hdr_descriptor = msaa_descriptor.clone();
-        msaa_hdr_descriptor.fragment.as_mut().unwrap().targets = vec![hdr_target];
+        if let Some(fragment) = msaa_hdr_descriptor.fragment.as_mut() {
+            fragment.targets = vec![hdr_target];
+        }
 
         let (pipeline_id, hdr_pipeline_id, msaa_pipeline_id, msaa_hdr_pipeline_id) = {
             let cache = world.resource_mut::<PipelineCache>();

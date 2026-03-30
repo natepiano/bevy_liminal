@@ -1,3 +1,5 @@
+//! Outlines with different anti-aliasing modes (MSAA, SMAA, TAA).
+
 use bevy::anti_alias::smaa::Smaa;
 use bevy::anti_alias::taa::TemporalAntiAliasing;
 use bevy::color::palettes::css::SILVER;

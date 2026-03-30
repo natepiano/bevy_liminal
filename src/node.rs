@@ -1,6 +1,7 @@
 use bevy::core_pipeline::prepass::ViewPrepassTextures;
 use bevy::ecs::query::QueryItem;
 use bevy::prelude::*;
+use bevy_kana::ToU32;
 use bevy_render::camera::ExtractedCamera;
 use bevy_render::render_graph::NodeRunError;
 use bevy_render::render_graph::RenderGraphContext;
@@ -29,6 +30,7 @@ use crate::JfaOutlinePhase;
 
 #[derive(Default)]
 pub struct OutlineNode;
+#[allow(clippy::too_many_lines)]
 impl ViewNode for OutlineNode {
     type ViewQuery = (
         Entity,
@@ -77,7 +79,7 @@ impl ViewNode for OutlineNode {
         let outline_phase = outline_phase.filter(|phase| !phase.is_empty());
         let hull_phase = hull_phase.filter(|phase| !phase.is_empty());
 
-        let Some(mut jump_flood_pass) = JumpFloodPass::new(world) else {
+        let Some(jump_flood_pass) = JumpFloodPass::new(world) else {
             return Ok(());
         };
         let mut flood_textures = flood_textures.clone();
@@ -236,7 +238,7 @@ impl ViewNode for OutlineNode {
         let outline_width: f32 = flood_settings.width;
 
         let passes = if outline_width > 0.0 {
-            ((outline_width * 2.0).ceil() as u32 / 2 + 1)
+            ((outline_width * 2.0).ceil().to_u32() / 2 + 1)
                 .next_power_of_two()
                 .trailing_zeros()
                 + 1
