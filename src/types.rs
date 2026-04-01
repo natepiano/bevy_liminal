@@ -6,10 +6,11 @@ use bevy_render::extract_component::ExtractComponent;
 use bevy_render::render_graph::RenderLabel;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::sync_world::MainEntityHashMap;
-use super::outline_builder::WorldHullState;
-use super::outline_builder::ScreenHullState;
-use super::outline_builder::OutlineBuilder;
+
 use super::outline_builder::JumpFloodState;
+use super::outline_builder::OutlineBuilder;
+use super::outline_builder::ScreenHullState;
+use super::outline_builder::WorldHullState;
 
 /// Tracks which outline infrastructure is needed this frame.
 /// Derived from the extracted outline cache to gate expensive hull resources.
@@ -168,25 +169,19 @@ pub struct Outline {
 impl Outline {
     /// Create a JFA outline builder. Width is in pixels.
     #[must_use]
-    pub const fn jump_flood(
-        width: f32,
-    ) -> OutlineBuilder<JumpFloodState> {
+    pub const fn jump_flood(width: f32) -> OutlineBuilder<JumpFloodState> {
         super::outline_builder::OutlineBuilder::jump_flood(width)
     }
 
     /// Create a screen-space hull outline builder. Width is in pixels.
     #[must_use]
-    pub const fn screen_hull(
-        width: f32,
-    ) -> OutlineBuilder<ScreenHullState> {
+    pub const fn screen_hull(width: f32) -> OutlineBuilder<ScreenHullState> {
         super::outline_builder::OutlineBuilder::screen_hull(width)
     }
 
     /// Create a world-space hull outline builder. Width is in world units.
     #[must_use]
-    pub const fn world_hull(
-        width: f32,
-    ) -> OutlineBuilder<WorldHullState> {
+    pub const fn world_hull(width: f32) -> OutlineBuilder<WorldHullState> {
         super::outline_builder::OutlineBuilder::world_hull(width)
     }
 }
