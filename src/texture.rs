@@ -16,7 +16,7 @@ use super::types::OutlineCamera;
 
 #[derive(Clone, Component)]
 pub(super) struct FloodTextures {
-    pub(super) flip:                  bool,
+    pub(super) ping_pong:             PingPongState,
     // Textures for storing input-output of flood passes
     pub(super) input:                 CachedTexture,
     pub(super) output:                CachedTexture,
@@ -29,16 +29,33 @@ pub(super) struct FloodTextures {
     pub(super) owner_texture:         Option<CachedTexture>,
 }
 
+#[derive(Clone, Copy)]
+pub(super) enum PingPongState {
+    PrimaryInput,
+    SecondaryInput,
+}
+
 impl FloodTextures {
     pub(super) const fn input(&self) -> &CachedTexture {
-        if self.flip { &self.output } else { &self.input }
+        match self.ping_pong {
+            PingPongState::PrimaryInput => &self.input,
+            PingPongState::SecondaryInput => &self.output,
+        }
     }
 
     pub(super) const fn output(&self) -> &CachedTexture {
-        if self.flip { &self.input } else { &self.output }
+        match self.ping_pong {
+            PingPongState::PrimaryInput => &self.output,
+            PingPongState::SecondaryInput => &self.input,
+        }
     }
 
-    pub(super) const fn flip(&mut self) { self.flip = !self.flip; }
+    pub(super) const fn swap_ping_pong(&mut self) {
+        self.ping_pong = match self.ping_pong {
+            PingPongState::PrimaryInput => PingPongState::SecondaryInput,
+            PingPongState::SecondaryInput => PingPongState::PrimaryInput,
+        };
+    }
 }
 
 pub(super) fn prepare_flood_textures(
@@ -83,14 +100,14 @@ pub(super) fn prepare_flood_textures(
             view_formats: &[],
         });
 
-        let owner_texture = if active.has_hull {
+        let owner_texture = if active.methods.has_hull() {
             Some(texture_cache.get(&render_device, texture_descriptor.clone()))
         } else {
             None
         };
 
         commands.entity(entity).insert(FloodTextures {
-            flip: false,
+            ping_pong: PingPongState::PrimaryInput,
             input: texture_cache.get(&render_device, texture_descriptor.clone()),
             output: texture_cache.get(&render_device, texture_descriptor.clone()),
             outline_depth_texture: depth_texture,

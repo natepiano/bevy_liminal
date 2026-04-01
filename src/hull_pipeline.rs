@@ -46,9 +46,23 @@ use super::shaders::HULL_SHADER_HANDLE;
 use super::uniforms::OutlineUniform;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(super) enum DynamicRange {
+    Sdr,
+    Hdr,
+}
+
+impl DynamicRange {
+    pub(super) const fn from_hdr(is_hdr: bool) -> Self {
+        if is_hdr { Self::Hdr } else { Self::Sdr }
+    }
+
+    const fn is_hdr(self) -> bool { matches!(self, Self::Hdr) }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(super) struct HullPipelineKey {
-    pub(super) mesh_key: MeshPipelineKey,
-    pub(super) hdr:      bool,
+    pub(super) mesh_key:       MeshPipelineKey,
+    pub(super) dynamic_range:  DynamicRange,
 }
 
 #[derive(Resource)]
@@ -119,7 +133,7 @@ impl SpecializedMeshPipeline for HullPipeline {
 
         descriptor.vertex.shader_defs.extend(shader_defs.clone());
 
-        let color_format = if key.hdr {
+        let color_format = if key.dynamic_range.is_hdr() {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
             TextureFormat::bevy_default()

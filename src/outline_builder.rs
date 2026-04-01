@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use bevy::prelude::Color;
 
 use super::types::LineStyle;
+use super::types::OutlineActivity;
 use super::types::Outline;
 use super::types::OutlineMethod;
 use super::types::OverlapMode;
@@ -78,7 +79,7 @@ impl OutlineBuilder<JumpFloodState> {
             color:        self.color,
             mode:         OutlineMethod::JumpFlood,
             style:        LineStyle::Solid,
-            enabled:      true,
+            activity:     OutlineActivity::Enabled,
         }
     }
 }
@@ -138,7 +139,7 @@ impl<M: HullModeState> OutlineBuilder<M> {
             color:        self.color,
             mode:         M::MODE,
             style:        LineStyle::Solid,
-            enabled:      true,
+            activity:     OutlineActivity::Enabled,
             group_source: None,
         }
     }
@@ -157,6 +158,7 @@ mod tests {
     use bevy::prelude::Color;
 
     use crate::Outline;
+    use crate::OutlineActivity;
     use crate::OutlineMethod;
     use crate::OverlapMode;
 
@@ -167,7 +169,7 @@ mod tests {
         assert_eq!(outline.mode, OutlineMethod::JumpFlood);
         assert!((outline.width - 4.0).abs() < f32::EPSILON);
         assert_eq!(outline.overlap, OverlapMode::Merged);
-        assert!(outline.enabled);
+        assert_eq!(outline.activity, OutlineActivity::Enabled);
     }
 
     #[test]
@@ -192,8 +194,8 @@ mod tests {
     }
 
     #[test]
-    fn enabled_defaults_to_true() {
+    fn activity_defaults_to_enabled() {
         let outline = Outline::jump_flood(2.0).build();
-        assert!(outline.enabled);
+        assert_eq!(outline.activity, OutlineActivity::Enabled);
     }
 }

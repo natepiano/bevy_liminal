@@ -35,7 +35,7 @@ pub(super) fn extract_outline_uniforms(
     }
 
     for (entity, outline) in &added_or_changed_outlines {
-        if outline.enabled {
+        if outline.activity.is_enabled() {
             dirty |= extracted_outlines.upsert(
                 MainEntity::from(entity),
                 ExtractedOutline::from_main_world(entity, outline),
@@ -49,7 +49,7 @@ pub(super) fn extract_outline_uniforms(
     }
 
     for (entity, outline) in &added_mesh_outlines {
-        if outline.enabled {
+        if outline.activity.is_enabled() {
             dirty |= extracted_outlines.upsert(
                 MainEntity::from(entity),
                 ExtractedOutline::from_main_world(entity, outline),
@@ -66,6 +66,5 @@ pub(super) fn update_active_outline_modes(
     extracted_outlines: Res<ExtractedOutlineUniforms>,
     mut active: ResMut<ActiveOutlineModes>,
 ) {
-    active.has_jfa = extracted_outlines.has_jfa;
-    active.has_hull = extracted_outlines.has_hull;
+    active.methods = extracted_outlines.methods;
 }

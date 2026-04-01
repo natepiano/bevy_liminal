@@ -257,7 +257,7 @@ fn run_jfa_composite(
     let Some(active) = world.get_resource::<ActiveOutlineModes>() else {
         return;
     };
-    if !active.has_jfa {
+    if !active.methods.has_jfa() {
         return;
     }
 
@@ -292,7 +292,7 @@ fn run_jfa_composite(
     };
 
     for size in (0..passes).rev() {
-        flood_textures.flip();
+        flood_textures.swap_ping_pong();
         jump_flood_pass.execute(
             render_context,
             flood_textures.input(),

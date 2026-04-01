@@ -39,6 +39,16 @@ use nonmax::NonMaxU32;
 use super::shaders::MASK_SHADER_HANDLE;
 use super::uniforms::OutlineUniform;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(super) enum HullPresence {
+    Absent,
+    Present,
+}
+
+impl HullPresence {
+    const fn is_present(self) -> bool { matches!(self, Self::Present) }
+}
+
 #[derive(Resource)]
 pub(super) struct MeshMaskPipeline {
     pub(super) mesh_pipeline:                MeshPipeline,
@@ -79,8 +89,8 @@ impl FromWorld for MeshMaskPipeline {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) struct MaskPipelineKey {
-    pub(super) mesh_key: MeshPipelineKey,
-    pub(super) has_hull: bool,
+    pub(super) mesh_key:      MeshPipelineKey,
+    pub(super) hull_presence: HullPresence,
 }
 
 impl SpecializedMeshPipeline for MeshMaskPipeline {
@@ -107,7 +117,7 @@ impl SpecializedMeshPipeline for MeshMaskPipeline {
                 per_object_buffer_batch_size,
             ));
         }
-        if key.has_hull {
+        if key.hull_presence.is_present() {
             shader_defs.push(ShaderDefVal::Bool("HULL_OUTLINES".into(), true));
         }
 
@@ -127,7 +137,7 @@ impl SpecializedMeshPipeline for MeshMaskPipeline {
                 write_mask: ColorWrites::ALL,
             }),
         ];
-        if key.has_hull {
+        if key.hull_presence.is_present() {
             // RT2: owner ID data (owner_id in x) — only when hull outlines exist
             targets.push(Some(ColorTargetState {
                 format:     TextureFormat::Rgba32Float,

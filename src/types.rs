@@ -11,10 +11,8 @@ use bevy_render::sync_world::MainEntityHashMap;
 /// Derived from the extracted outline cache to gate expensive hull resources.
 #[derive(Resource, Default)]
 pub(super) struct ActiveOutlineModes {
-    /// Whether any entity requires jump-flood outlines.
-    pub(super) has_jfa:  bool,
-    /// Whether any entity requires hull-extrusion outlines.
-    pub(super) has_hull: bool,
+    /// Which outline methods are active this frame.
+    pub(super) methods: ActiveOutlineMethods,
 }
 
 /// Render-world cache of all extracted outlines, keyed by main-world entity.
@@ -22,10 +20,8 @@ pub(super) struct ActiveOutlineModes {
 pub(super) struct ExtractedOutlineUniforms {
     /// Map from main-world entity to its extracted outline data.
     pub(super) by_main_entity: MainEntityHashMap<ExtractedOutline>,
-    /// Whether any extracted outline uses the JFA method.
-    pub(super) has_jfa:        bool,
-    /// Whether any extracted outline uses a hull method.
-    pub(super) has_hull:       bool,
+    /// Which outline methods appear in the extracted cache.
+    pub(super) methods:        ActiveOutlineMethods,
     /// Largest JFA outline width across all extracted outlines.
     pub(super) max_jfa_width:  f32,
 }
@@ -45,18 +41,46 @@ impl ExtractedOutlineUniforms {
     }
 
     pub(super) fn recompute_flags_and_width(&mut self) {
-        self.has_jfa = false;
-        self.has_hull = false;
+        self.methods = ActiveOutlineMethods::None;
         self.max_jfa_width = 0.0;
 
         for outline in self.by_main_entity.values() {
-            match outline.mode {
-                OutlineMethod::JumpFlood => {
-                    self.has_jfa = true;
-                    self.max_jfa_width = self.max_jfa_width.max(outline.width);
-                },
-                _ => self.has_hull = true,
+            self.methods = self.methods.with_outline_method(outline.mode);
+            if outline.mode == OutlineMethod::JumpFlood {
+                self.max_jfa_width = self.max_jfa_width.max(outline.width);
             }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(super) enum ActiveOutlineMethods {
+    #[default]
+    None,
+    JumpFloodOnly,
+    HullOnly,
+    JumpFloodAndHull,
+}
+
+impl ActiveOutlineMethods {
+    pub(super) const fn has_jfa(self) -> bool {
+        matches!(self, Self::JumpFloodOnly | Self::JumpFloodAndHull)
+    }
+
+    pub(super) const fn has_hull(self) -> bool {
+        matches!(self, Self::HullOnly | Self::JumpFloodAndHull)
+    }
+
+    pub(super) const fn with_outline_method(self, method: OutlineMethod) -> Self {
+        let includes_jfa = self.has_jfa() || matches!(method, OutlineMethod::JumpFlood);
+        let includes_hull = self.has_hull()
+            || matches!(method, OutlineMethod::WorldHull | OutlineMethod::ScreenHull);
+
+        match (includes_jfa, includes_hull) {
+            (false, false) => Self::None,
+            (true, false) => Self::JumpFloodOnly,
+            (false, true) => Self::HullOnly,
+            (true, true) => Self::JumpFloodAndHull,
         }
     }
 }
@@ -130,8 +154,8 @@ pub struct Outline {
     pub overlap:             OverlapMode,
     /// Line style (currently only `Solid`).
     pub style:               LineStyle,
-    /// When `false`, extraction skips this outline without removing the component.
-    pub enabled:             bool,
+    /// Whether this outline participates in extraction and rendering.
+    pub activity:            OutlineActivity,
     /// Set internally by propagation. When `Grouped`, all propagated children share this
     /// entity's ID as the owner for overlap resolution. Not user-facing.
     pub(crate) group_source: Option<Entity>,
@@ -217,6 +241,23 @@ pub enum LineStyle {
     /// A continuous solid stroke.
     #[default]
     Solid,
+}
+
+/// Whether an `Outline` is active without removing the component.
+#[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub enum OutlineActivity {
+    /// The outline participates in extraction and rendering.
+    #[default]
+    Enabled,
+    /// The outline is present but skipped during extraction.
+    Disabled,
+}
+
+impl OutlineActivity {
+    /// Returns whether the outline should participate in extraction and rendering.
+    #[must_use]
+    pub const fn is_enabled(self) -> bool { matches!(self, Self::Enabled) }
 }
 
 impl OverlapMode {

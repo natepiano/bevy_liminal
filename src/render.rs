@@ -221,7 +221,7 @@ pub(super) fn prepare_hull_depth_view_bind_groups(
     pipeline: Res<HullPipeline>,
     views: Query<(Entity, &FloodTextures)>,
 ) {
-    if !active.has_hull {
+    if !active.methods.has_hull() {
         return;
     }
 
@@ -259,7 +259,7 @@ pub(super) fn prepare_hull_outline_buffer(
 ) {
     outline_buffer.0.clear();
 
-    if !active.has_hull {
+    if !active.methods.has_hull() {
         return;
     }
 
@@ -325,7 +325,7 @@ pub(super) fn prepare_hull_outline_bind_group(
     mut outline_buffer: ResMut<HullOutlineUniformBuffer>,
     mut outline_bind_group: ResMut<HullOutlineBindGroup>,
 ) {
-    if !active.has_hull {
+    if !active.methods.has_hull() {
         outline_bind_group.0 = None;
         return;
     }

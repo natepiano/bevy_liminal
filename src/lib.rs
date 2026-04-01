@@ -63,6 +63,7 @@ use types::ExtractedOutlineUniforms;
 pub use types::LineStyle;
 pub use types::NoOutline;
 pub use types::Outline;
+pub use types::OutlineActivity;
 pub use types::OutlineCamera;
 pub use types::OutlineMethod;
 use types::OutlineRenderGraphNode;

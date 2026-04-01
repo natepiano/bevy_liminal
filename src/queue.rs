@@ -18,12 +18,14 @@ use bevy_render::view::RenderVisibleEntities;
 
 use super::DrawHull;
 use super::DrawOutline;
+use super::hull_pipeline::DynamicRange;
 use super::hull_pipeline::HullPipeline;
 use super::hull_pipeline::HullPipelineKey;
 use super::mask::HullOutlinePhase;
 use super::mask::JfaOutlinePhase;
 use super::mask::OutlineBatchSetKey;
 use super::mask::OutlineBinKey;
+use super::mask_pipeline::HullPresence;
 use super::mask_pipeline::MaskPipelineKey;
 use super::mask_pipeline::MeshMaskPipeline;
 use super::types::ActiveOutlineModes;
@@ -102,7 +104,11 @@ pub(super) fn queue_outline(
                 &mesh_outline_pipeline,
                 MaskPipelineKey {
                     mesh_key,
-                    has_hull: active.has_hull,
+                    hull_presence: if active.methods.has_hull() {
+                        HullPresence::Present
+                    } else {
+                        HullPresence::Absent
+                    },
                 },
                 &mesh.layout,
             ) else {
@@ -160,7 +166,7 @@ pub(super) fn queue_hull_outline(
     >,
     mut change_tick: Local<Tick>,
 ) {
-    if !active.has_hull {
+    if !active.methods.has_hull() {
         return;
     }
 
@@ -212,7 +218,7 @@ pub(super) fn queue_hull_outline(
                 &hull_pipeline,
                 HullPipelineKey {
                     mesh_key,
-                    hdr: view.hdr,
+                    dynamic_range: DynamicRange::from_hdr(view.hdr),
                 },
                 &mesh.layout,
             ) else {
