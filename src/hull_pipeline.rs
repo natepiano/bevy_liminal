@@ -27,13 +27,13 @@ use bevy_render::render_resource::Face;
 use bevy_render::render_resource::FragmentState;
 use bevy_render::render_resource::GpuArrayBuffer;
 use bevy_render::render_resource::RenderPipelineDescriptor;
+use bevy_render::render_resource::SamplerBindingType;
 use bevy_render::render_resource::SamplerDescriptor;
 use bevy_render::render_resource::ShaderStages;
 use bevy_render::render_resource::SpecializedMeshPipeline;
 use bevy_render::render_resource::SpecializedMeshPipelineError;
 use bevy_render::render_resource::TextureFormat;
 use bevy_render::render_resource::TextureSampleType;
-use bevy_render::render_resource::SamplerBindingType;
 use bevy_render::render_resource::binding_types::sampler;
 use bevy_render::render_resource::binding_types::texture_2d;
 use bevy_render::render_resource::binding_types::texture_depth_2d;
@@ -61,8 +61,8 @@ impl DynamicRange {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(super) struct HullPipelineKey {
-    pub(super) mesh_key:       MeshPipelineKey,
-    pub(super) dynamic_range:  DynamicRange,
+    pub(super) mesh_key:      MeshPipelineKey,
+    pub(super) dynamic_range: DynamicRange,
 }
 
 #[derive(Resource)]

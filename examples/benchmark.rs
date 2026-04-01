@@ -873,7 +873,7 @@ fn results_label_width() -> usize {
 
 fn live_metrics(diagnostics: &DiagnosticsStore) -> LiveMetrics {
     LiveMetrics {
-        fps: diagnostics
+        fps:        diagnostics
             .get(&FrameTimeDiagnosticsPlugin::FPS)
             .and_then(bevy::diagnostic::Diagnostic::smoothed)
             .unwrap_or(0.0),
@@ -892,7 +892,10 @@ fn benchmark_stats_line(frame_times: &[f64], col: usize) -> String {
     let sum: f64 = frame_times.iter().sum();
     let avg_ms = sum / frame_times.len().to_f64();
     let avg_fps = MS_PER_SECOND / avg_ms;
-    format!("\n{:<col$}FPS: {avg_fps:<4.0}  Frame: {avg_ms:.2}ms", "Bench:")
+    format!(
+        "\n{:<col$}FPS: {avg_fps:<4.0}  Frame: {avg_ms:.2}ms",
+        "Bench:"
+    )
 }
 
 fn append_results_section(

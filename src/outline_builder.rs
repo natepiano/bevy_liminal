@@ -3,8 +3,8 @@ use std::marker::PhantomData;
 use bevy::prelude::Color;
 
 use super::types::LineStyle;
-use super::types::OutlineActivity;
 use super::types::Outline;
+use super::types::OutlineActivity;
 use super::types::OutlineMethod;
 use super::types::OverlapMode;
 
