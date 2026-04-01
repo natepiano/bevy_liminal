@@ -56,7 +56,6 @@ bytemuck = "1"
 nonmax = "0.5"
 rand = "0.10.0"
 tracing = "0.1"
-wgpu-types = "27" # must match bevy's wgpu-types version
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.4.2", features = ["wasm_js"] }

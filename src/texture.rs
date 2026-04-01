@@ -1,15 +1,15 @@
 use bevy::core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
 use bevy::prelude::*;
+use bevy::render::render_resource::Extent3d;
+use bevy::render::render_resource::TextureDimension;
+use bevy::render::render_resource::TextureFormat;
+use bevy::render::render_resource::TextureUsages;
 use bevy_render::camera::ExtractedCamera;
 use bevy_render::render_resource::Texture;
 use bevy_render::render_resource::TextureDescriptor;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::texture::CachedTexture;
 use bevy_render::texture::TextureCache;
-use wgpu_types::Extent3d;
-use wgpu_types::TextureDimension;
-use wgpu_types::TextureFormat;
-use wgpu_types::TextureUsages;
 
 use super::types::ActiveOutlineModes;
 use super::types::OutlineCamera;

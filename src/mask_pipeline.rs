@@ -31,10 +31,10 @@ use bevy_render::render_resource::ShaderStages;
 use bevy_render::render_resource::SpecializedMeshPipeline;
 use bevy_render::render_resource::SpecializedMeshPipelineError;
 use bevy_render::render_resource::TextureFormat;
+use bevy_render::render_resource::MultisampleState;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::sync_world::MainEntity;
 use nonmax::NonMaxU32;
-use wgpu_types::MultisampleState;
 
 use super::shaders::MASK_SHADER_HANDLE;
 use super::uniforms::OutlineUniform;

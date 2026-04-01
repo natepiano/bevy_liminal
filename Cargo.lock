@@ -1010,7 +1010,6 @@ dependencies = [
  "nonmax",
  "rand 0.10.0",
  "tracing",
- "wgpu-types",
 ]
 
 [[package]]

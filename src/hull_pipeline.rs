@@ -33,6 +33,7 @@ use bevy_render::render_resource::SpecializedMeshPipeline;
 use bevy_render::render_resource::SpecializedMeshPipelineError;
 use bevy_render::render_resource::TextureFormat;
 use bevy_render::render_resource::TextureSampleType;
+use bevy_render::render_resource::SamplerBindingType;
 use bevy_render::render_resource::binding_types::sampler;
 use bevy_render::render_resource::binding_types::texture_2d;
 use bevy_render::render_resource::binding_types::texture_depth_2d;
@@ -40,7 +41,6 @@ use bevy_render::renderer::RenderDevice;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::view::ViewTarget;
 use nonmax::NonMaxU32;
-use wgpu_types::SamplerBindingType;
 
 use super::shaders::HULL_SHADER_HANDLE;
 use super::uniforms::OutlineUniform;

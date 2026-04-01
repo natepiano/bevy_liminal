@@ -146,12 +146,7 @@ fn run_mask_init_pass(
         view:           &flood_textures.output.default_view,
         resolve_target: None,
         ops:            Operations {
-            load:  LoadOp::Clear(wgpu_types::Color {
-                r: -1.0,
-                g: -1.0,
-                b: -1.0,
-                a: 0.0,
-            }),
+            load:  LoadOp::Clear(LinearRgba::new(-1.0, -1.0, -1.0, 0.0).into()),
             store: StoreOp::Store,
         },
         depth_slice:    None,
@@ -161,12 +156,7 @@ fn run_mask_init_pass(
         view:           &flood_textures.appearance_texture.default_view,
         resolve_target: None,
         ops:            Operations {
-            load:  LoadOp::Clear(wgpu_types::Color {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                a: 0.0,
-            }),
+            load:  LoadOp::Clear(LinearRgba::NONE.into()),
             store: StoreOp::Store,
         },
         depth_slice:    None,
@@ -179,12 +169,7 @@ fn run_mask_init_pass(
                 view:           &tex.default_view,
                 resolve_target: None,
                 ops:            Operations {
-                    load:  LoadOp::Clear(wgpu_types::Color {
-                        r: 0.0,
-                        g: 0.0,
-                        b: 0.0,
-                        a: 0.0,
-                    }),
+                    load:  LoadOp::Clear(LinearRgba::NONE.into()),
                     store: StoreOp::Store,
                 },
                 depth_slice:    None,
