@@ -6,6 +6,10 @@ use bevy_render::extract_component::ExtractComponent;
 use bevy_render::render_graph::RenderLabel;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::sync_world::MainEntityHashMap;
+use super::outline_builder::WorldHullState;
+use super::outline_builder::ScreenHullState;
+use super::outline_builder::OutlineBuilder;
+use super::outline_builder::JumpFloodState;
 
 /// Tracks which outline infrastructure is needed this frame.
 /// Derived from the extracted outline cache to gate expensive hull resources.
@@ -166,7 +170,7 @@ impl Outline {
     #[must_use]
     pub const fn jump_flood(
         width: f32,
-    ) -> super::outline_builder::OutlineBuilder<super::outline_builder::JumpFloodState> {
+    ) -> OutlineBuilder<JumpFloodState> {
         super::outline_builder::OutlineBuilder::jump_flood(width)
     }
 
@@ -174,7 +178,7 @@ impl Outline {
     #[must_use]
     pub const fn screen_hull(
         width: f32,
-    ) -> super::outline_builder::OutlineBuilder<super::outline_builder::ScreenHullState> {
+    ) -> OutlineBuilder<ScreenHullState> {
         super::outline_builder::OutlineBuilder::screen_hull(width)
     }
 
@@ -182,7 +186,7 @@ impl Outline {
     #[must_use]
     pub const fn world_hull(
         width: f32,
-    ) -> super::outline_builder::OutlineBuilder<super::outline_builder::WorldHullState> {
+    ) -> OutlineBuilder<WorldHullState> {
         super::outline_builder::OutlineBuilder::world_hull(width)
     }
 }
