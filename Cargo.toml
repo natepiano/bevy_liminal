@@ -14,9 +14,10 @@ version      = "0.0.1"
 
 [lints.clippy]
 # Our strict lints
-expect_used = "deny"
-panic       = "deny"
-unwrap_used = "deny"
+allow_attributes_without_reason = "deny"
+expect_used                     = "deny"
+panic                           = "deny"
+unwrap_used                     = "deny"
 
 # Enable lint groups as errors (with lower priority so allows can override)
 all      = { level = "deny", priority = -1 }
