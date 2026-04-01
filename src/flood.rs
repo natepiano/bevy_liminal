@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use bevy::core_pipeline::FullscreenShader;
 use bevy::prelude::*;
 use bevy::render::render_resource::BindGroupEntries;
@@ -36,21 +34,21 @@ use wgpu_types::ShaderStages;
 use wgpu_types::TextureFormat;
 use wgpu_types::TextureSampleType;
 
-use super::ExtractedOutlineUniforms;
-use super::OutlineCamera;
-use crate::shaders::FLOOD_SHADER_HANDLE;
+use super::shaders::FLOOD_SHADER_HANDLE;
+use super::types::ExtractedOutlineUniforms;
+use super::types::OutlineCamera;
 
 #[derive(ShaderType)]
-pub struct JumpFloodUniform {
-    pub step_length: u32,
+pub(super) struct JumpFloodUniform {
+    pub(super) step_length: u32,
 }
 
 #[derive(Component, Default, Clone)]
-pub struct FloodSettings {
-    pub width: f32,
+pub(super) struct FloodSettings {
+    pub(super) width: f32,
 }
 
-pub fn prepare_flood_settings(
+pub(super) fn prepare_flood_settings(
     mut commands: Commands,
     extracted_outlines: Res<ExtractedOutlineUniforms>,
     cameras: Query<Entity, With<OutlineCamera>>,
@@ -65,12 +63,12 @@ pub fn prepare_flood_settings(
 }
 
 #[derive(Resource)]
-pub struct JumpFloodPipeline {
-    pub layout:         BindGroupLayoutDescriptor,
-    pub sampler:        Sampler,
-    pub pipeline_id:    CachedRenderPipelineId,
-    pub lookup_buffer:  DynamicUniformBuffer<JumpFloodUniform>,
-    pub lookup_offsets: Vec<u32>,
+pub(super) struct JumpFloodPipeline {
+    pub(super) layout:         BindGroupLayoutDescriptor,
+    pub(super) sampler:        Sampler,
+    pub(super) pipeline_id:    CachedRenderPipelineId,
+    pub(super) lookup_buffer:  DynamicUniformBuffer<JumpFloodUniform>,
+    pub(super) lookup_offsets: Vec<u32>,
 }
 
 impl FromWorld for JumpFloodPipeline {
@@ -144,14 +142,14 @@ impl FromWorld for JumpFloodPipeline {
     }
 }
 
-pub struct JumpFloodPass<'w> {
-    pub pipeline:    &'w JumpFloodPipeline,
-    render_pipeline: &'w RenderPipeline,
-    pipeline_cache:  &'w PipelineCache,
+pub(super) struct JumpFloodPass<'w> {
+    pub(super) pipeline: &'w JumpFloodPipeline,
+    render_pipeline:     &'w RenderPipeline,
+    pipeline_cache:      &'w PipelineCache,
 }
 
 impl<'w> JumpFloodPass<'w> {
-    pub fn new(world: &'w World) -> Option<Self> {
+    pub(super) fn new(world: &'w World) -> Option<Self> {
         let pipeline = world.resource::<JumpFloodPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let render_pipeline = pipeline_cache.get_render_pipeline(pipeline.pipeline_id)?;
@@ -163,8 +161,7 @@ impl<'w> JumpFloodPass<'w> {
         })
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn execute(
+    pub(super) fn execute(
         &self,
         render_context: &mut RenderContext<'_>,
         input: &CachedTexture,

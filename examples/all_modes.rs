@@ -7,6 +7,7 @@ use bevy::picking::mesh_picking::MeshPickingPlugin;
 use bevy::prelude::*;
 use bevy_brp_extras::BrpExtrasPlugin;
 use bevy_brp_extras::PortDisplay;
+use bevy_kana::ToF32;
 use bevy_lagrange::LagrangePlugin;
 use bevy_lagrange::OrbitCam;
 use bevy_lagrange::TrackpadBehavior;
@@ -45,7 +46,6 @@ fn main() {
         .run();
 }
 
-#[allow(clippy::too_many_lines)]
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -62,7 +62,6 @@ fn setup(
         base_color: Color::srgb(0.65, 0.55, 0.75),
         ..default()
     });
-
     let torus_mesh = meshes.add(
         Torus::new(0.25, 0.75)
             .mesh()
@@ -74,26 +73,44 @@ fn setup(
         ..default()
     });
 
+    spawn_outline_grid(
+        &mut commands,
+        &cube_mesh,
+        &cube_material,
+        &sphere_mesh,
+        &sphere_material,
+        &torus_mesh,
+        &torus_material,
+        &asset_server,
+    );
+    spawn_environment(&mut commands, &mut meshes, &mut materials);
+    spawn_ui(&mut commands);
+}
+
+fn spawn_outline_grid(
+    commands: &mut Commands,
+    cube_mesh: &Handle<Mesh>,
+    cube_material: &Handle<StandardMaterial>,
+    sphere_mesh: &Handle<Mesh>,
+    sphere_material: &Handle<StandardMaterial>,
+    torus_mesh: &Handle<Mesh>,
+    torus_material: &Handle<StandardMaterial>,
+    asset_server: &AssetServer,
+) {
     let modes: &[(OutlineMethod, &str)] = &[
         (OutlineMethod::WorldHull, "WorldHull"),
         (OutlineMethod::ScreenHull, "ScreenHull"),
         (OutlineMethod::JumpFlood, "JumpFlood"),
     ];
 
-    // Per-column rotations shared by all shapes in that column.
-    // Left: rotated toward camera and left — shows front and left faces.
-    // Center: default orientation — straight-on view.
-    // Right: rotated away from camera and right — shows back and right faces.
     let column_rotations = [
         Quat::from_euler(EulerRot::YXZ, 0.7, 0.4, 0.0),
         Quat::IDENTITY,
         Quat::from_euler(EulerRot::YXZ, -0.7, -0.9, 0.15),
     ];
 
-    // 3x3 grid: rows are back→front (torus, cube, spaceship), columns are outline methods
     for (col, &(mode, label)) in modes.iter().enumerate() {
-        #[allow(clippy::cast_precision_loss)]
-        let x = (col as f32 - 1.0) * GRID_SPACING;
+        let x = (col.to_f32() - 1.0) * GRID_SPACING;
         let rotation = column_rotations[col];
         let outline = match mode {
             OutlineMethod::JumpFlood => Outline::jump_flood(OUTLINE_WIDTH)
@@ -111,7 +128,6 @@ fn setup(
             _ => unreachable!(),
         };
 
-        // Back row: torus
         commands
             .spawn((
                 Name::new(format!("Torus ({label})")),
@@ -126,8 +142,6 @@ fn setup(
             ))
             .observe(on_mesh_clicked);
 
-        // Middle row: cube with child spheres on opposite faces.
-        // Outline propagates to children automatically.
         commands
             .spawn((
                 Name::new(format!("Cube ({label})")),
@@ -156,7 +170,6 @@ fn setup(
                 ));
             });
 
-        // Front row: spaceship — outline propagates to glTF children automatically
         commands
             .spawn((
                 Name::new(format!("Spaceship ({label})")),
@@ -170,7 +183,6 @@ fn setup(
             ))
             .observe(on_mesh_clicked);
 
-        // Column label
         commands.spawn((
             Text2d::new(label),
             TextFont {
@@ -181,8 +193,13 @@ fn setup(
             Transform::from_xyz(x * 80.0, 280.0, 0.0),
         ));
     }
+}
 
-    // Ground plane
+fn spawn_environment(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+) {
     let ground = commands
         .spawn((
             Mesh3d(meshes.add(Plane3d::default().mesh().size(18.0, 18.0))),
@@ -198,7 +215,6 @@ fn setup(
 
     commands.insert_resource(SceneBounds(ground));
 
-    // Light
     commands.spawn((
         DirectionalLight {
             shadows_enabled: true,
@@ -207,7 +223,6 @@ fn setup(
         Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
-    // Camera
     commands.spawn((
         OutlineCamera,
         OrbitCam {
@@ -223,8 +238,9 @@ fn setup(
         },
         Transform::from_xyz(0.0, 12.0, 18.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+}
 
-    // Instructions
+fn spawn_ui(commands: &mut Commands) {
     commands.spawn((
         Text::new(
             "Click a mesh to zoom-to-fit\n\
@@ -247,7 +263,6 @@ fn setup(
         },
     ));
 
-    // Overlap mode label (bottom-left)
     commands.spawn((
         OverlapLabel,
         Text::new("Overlap: Merged"),

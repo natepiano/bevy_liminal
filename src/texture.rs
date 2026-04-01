@@ -11,37 +11,37 @@ use wgpu_types::TextureDimension;
 use wgpu_types::TextureFormat;
 use wgpu_types::TextureUsages;
 
-use super::ActiveOutlineModes;
-use super::OutlineCamera;
+use super::types::ActiveOutlineModes;
+use super::types::OutlineCamera;
 
 #[derive(Clone, Component)]
-pub struct FloodTextures {
-    pub flip:                  bool,
+pub(super) struct FloodTextures {
+    pub(super) flip:                  bool,
     // Textures for storing input-output of flood passes
-    pub input:                 CachedTexture,
-    pub output:                CachedTexture,
+    pub(super) input:                 CachedTexture,
+    pub(super) output:                CachedTexture,
     /// A dedicated depth texture for mesh outlines to later compare against
     /// global depth
-    pub outline_depth_texture: Texture,
+    pub(super) outline_depth_texture: Texture,
     /// Stores outline color and mesh data
-    pub appearance_texture:    CachedTexture,
+    pub(super) appearance_texture:    CachedTexture,
     /// Stores per-mesh owner ID in x channel — only allocated when hull outlines are active
-    pub owner_texture:         Option<CachedTexture>,
+    pub(super) owner_texture:         Option<CachedTexture>,
 }
 
 impl FloodTextures {
-    pub const fn input(&self) -> &CachedTexture {
+    pub(super) const fn input(&self) -> &CachedTexture {
         if self.flip { &self.output } else { &self.input }
     }
 
-    pub const fn output(&self) -> &CachedTexture {
+    pub(super) const fn output(&self) -> &CachedTexture {
         if self.flip { &self.input } else { &self.output }
     }
 
-    pub const fn flip(&mut self) { self.flip = !self.flip; }
+    pub(super) const fn flip(&mut self) { self.flip = !self.flip; }
 }
 
-pub fn prepare_flood_textures(
+pub(super) fn prepare_flood_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,

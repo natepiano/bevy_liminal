@@ -36,18 +36,18 @@ use bevy_render::sync_world::MainEntity;
 use nonmax::NonMaxU32;
 use wgpu_types::MultisampleState;
 
+use super::shaders::MASK_SHADER_HANDLE;
 use super::uniforms::OutlineUniform;
-use crate::shaders::MASK_SHADER_HANDLE;
 
 #[derive(Resource)]
-pub struct MeshMaskPipeline {
-    pub mesh_pipeline:                MeshPipeline,
-    pub outline_bind_group_layout:    BindGroupLayoutDescriptor,
+pub(super) struct MeshMaskPipeline {
+    pub(super) mesh_pipeline:                MeshPipeline,
+    pub(super) outline_bind_group_layout:    BindGroupLayoutDescriptor,
     /// `Some(N)` on WebGL2 where only fixed-size uniform arrays are available,
     /// `None` on native GPU where unbounded storage buffer arrays are supported.
     /// When `Some`, injects the `PER_OBJECT_BUFFER_BATCH_SIZE` shader def so the
     /// WGSL shader declares a fixed-size array instead of an unbounded one.
-    pub per_object_buffer_batch_size: Option<u32>,
+    pub(super) per_object_buffer_batch_size: Option<u32>,
 }
 
 impl FromWorld for MeshMaskPipeline {
@@ -78,9 +78,9 @@ impl FromWorld for MeshMaskPipeline {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct MaskPipelineKey {
-    pub mesh_key: MeshPipelineKey,
-    pub has_hull: bool,
+pub(super) struct MaskPipelineKey {
+    pub(super) mesh_key: MeshPipelineKey,
+    pub(super) has_hull: bool,
 }
 
 impl SpecializedMeshPipeline for MeshMaskPipeline {
@@ -173,7 +173,7 @@ impl GetBatchData for MeshMaskPipeline {
 
     fn get_batch_data(
         (mesh_instances, _, mesh_allocator, skin_uniforms): &SystemParamItem<Self::Param>,
-        (_entity, main_entity): (Entity, MainEntity),
+        (_, main_entity): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
             tracing::error!(
@@ -183,11 +183,9 @@ impl GetBatchData for MeshMaskPipeline {
             return None;
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
-        let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
-                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
-                None => 0,
-            };
+        let first_vertex_index = mesh_allocator
+            .mesh_vertex_slice(&mesh_instance.mesh_asset_id)
+            .map_or(0, |slice| slice.range.start);
 
         let current_skin_index = skin_uniforms.skin_index(main_entity);
         let material_bind_group_index = mesh_instance.material_bindings_index;
@@ -241,11 +239,9 @@ impl GetFullBatchData for MeshMaskPipeline {
             return None;
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
-        let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
-                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
-                None => 0,
-            };
+        let first_vertex_index = mesh_allocator
+            .mesh_vertex_slice(&mesh_instance.mesh_asset_id)
+            .map_or(0, |slice| slice.range.start);
 
         let current_skin_index = skin_uniforms.skin_index(main_entity);
 

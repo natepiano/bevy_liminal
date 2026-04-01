@@ -13,11 +13,11 @@ use bevy_render::render_resource::CachedRenderPipelineId;
 use bevy_render::sync_world::MainEntity;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct OutlineBatchSetKey {
-    pub pipeline:      CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
-    pub vertex_slab:   SlabId,
-    pub index_slab:    Option<SlabId>,
+pub(super) struct OutlineBatchSetKey {
+    pub(super) pipeline:      CachedRenderPipelineId,
+    pub(super) draw_function: DrawFunctionId,
+    pub(super) vertex_slab:   SlabId,
+    pub(super) index_slab:    Option<SlabId>,
 }
 
 impl PhaseItemBatchSetKey for OutlineBatchSetKey {
@@ -31,17 +31,17 @@ impl PhaseItemBatchSetKey for OutlineBatchSetKey {
 /// single storage buffer and bind group still provide a very large performance win
 /// over per-entity buffers.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct OutlineBinKey {
-    pub asset_id:    UntypedAssetId,
-    pub main_entity: MainEntity,
+pub(super) struct OutlineBinKey {
+    pub(super) asset_id:    UntypedAssetId,
+    pub(super) main_entity: MainEntity,
 }
 
-pub struct JfaOutlinePhase {
-    pub batch_set_key: OutlineBatchSetKey,
-    pub entity:        Entity,
-    pub main_entity:   MainEntity,
-    pub batch_range:   Range<u32>,
-    pub extra_index:   PhaseItemExtraIndex,
+pub(super) struct JfaOutlinePhase {
+    pub(super) batch_set_key: OutlineBatchSetKey,
+    pub(super) entity:        Entity,
+    pub(super) main_entity:   MainEntity,
+    pub(super) batch_range:   Range<u32>,
+    pub(super) extra_index:   PhaseItemExtraIndex,
 }
 
 impl PhaseItem for JfaOutlinePhase {
@@ -78,7 +78,7 @@ impl BinnedPhaseItem for JfaOutlinePhase {
 
     fn new(
         batch_set_key: Self::BatchSetKey,
-        _key: Self::BinKey,
+        _: Self::BinKey,
         representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
@@ -98,12 +98,12 @@ impl CachedRenderPipelinePhaseItem for JfaOutlinePhase {
     fn cached_pipeline(&self) -> CachedRenderPipelineId { self.batch_set_key.pipeline }
 }
 
-pub struct HullOutlinePhase {
-    pub batch_set_key: OutlineBatchSetKey,
-    pub entity:        Entity,
-    pub main_entity:   MainEntity,
-    pub batch_range:   Range<u32>,
-    pub extra_index:   PhaseItemExtraIndex,
+pub(super) struct HullOutlinePhase {
+    pub(super) batch_set_key: OutlineBatchSetKey,
+    pub(super) entity:        Entity,
+    pub(super) main_entity:   MainEntity,
+    pub(super) batch_range:   Range<u32>,
+    pub(super) extra_index:   PhaseItemExtraIndex,
 }
 
 impl PhaseItem for HullOutlinePhase {
@@ -131,7 +131,7 @@ impl BinnedPhaseItem for HullOutlinePhase {
 
     fn new(
         batch_set_key: Self::BatchSetKey,
-        _key: Self::BinKey,
+        _: Self::BinKey,
         representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,

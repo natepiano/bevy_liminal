@@ -42,22 +42,22 @@ use bevy_render::view::ViewTarget;
 use nonmax::NonMaxU32;
 use wgpu_types::SamplerBindingType;
 
-use crate::shaders::HULL_SHADER_HANDLE;
-use crate::uniforms::OutlineUniform;
+use super::shaders::HULL_SHADER_HANDLE;
+use super::uniforms::OutlineUniform;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct HullPipelineKey {
-    pub mesh_key: MeshPipelineKey,
-    pub hdr:      bool,
+pub(super) struct HullPipelineKey {
+    pub(super) mesh_key: MeshPipelineKey,
+    pub(super) hdr:      bool,
 }
 
 #[derive(Resource)]
-pub struct HullPipeline {
-    pub mesh_pipeline:                MeshPipeline,
-    pub outline_bind_group_layout:    BindGroupLayoutDescriptor,
-    pub depth_bind_group_layout:      BindGroupLayoutDescriptor,
-    pub per_object_buffer_batch_size: Option<u32>,
-    pub occlusion_sampler:            bevy_render::render_resource::Sampler,
+pub(super) struct HullPipeline {
+    pub(super) mesh_pipeline:                MeshPipeline,
+    pub(super) outline_bind_group_layout:    BindGroupLayoutDescriptor,
+    pub(super) depth_bind_group_layout:      BindGroupLayoutDescriptor,
+    pub(super) per_object_buffer_batch_size: Option<u32>,
+    pub(super) occlusion_sampler:            bevy_render::render_resource::Sampler,
 }
 
 impl FromWorld for HullPipeline {
@@ -168,7 +168,7 @@ impl GetBatchData for HullPipeline {
 
     fn get_batch_data(
         (mesh_instances, _, mesh_allocator, skin_uniforms): &SystemParamItem<Self::Param>,
-        (_entity, main_entity): (Entity, MainEntity),
+        (_, main_entity): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
             tracing::error!(
@@ -177,11 +177,9 @@ impl GetBatchData for HullPipeline {
             return None;
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
-        let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
-                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
-                None => 0,
-            };
+        let first_vertex_index = mesh_allocator
+            .mesh_vertex_slice(&mesh_instance.mesh_asset_id)
+            .map_or(0, |slice| slice.range.start);
 
         let current_skin_index = skin_uniforms.skin_index(main_entity);
         let material_bind_group_index = mesh_instance.material_bindings_index;
@@ -231,11 +229,9 @@ impl GetFullBatchData for HullPipeline {
             return None;
         };
         let mesh_instance = mesh_instances.get(&main_entity)?;
-        let first_vertex_index =
-            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
-                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
-                None => 0,
-            };
+        let first_vertex_index = mesh_allocator
+            .mesh_vertex_slice(&mesh_instance.mesh_asset_id)
+            .map_or(0, |slice| slice.range.start);
 
         let current_skin_index = skin_uniforms.skin_index(main_entity);
 

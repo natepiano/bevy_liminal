@@ -2,10 +2,10 @@ use std::marker::PhantomData;
 
 use bevy::prelude::Color;
 
-use crate::LineStyle;
-use crate::Outline;
-use crate::OutlineMethod;
-use crate::OverlapMode;
+use super::types::LineStyle;
+use super::types::Outline;
+use super::types::OutlineMethod;
+use super::types::OverlapMode;
 
 /// Sealed trait implemented by outline mode type-state markers.
 pub trait OutlineModeState: private::Sealed {

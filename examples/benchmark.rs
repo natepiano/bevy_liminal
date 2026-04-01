@@ -1,11 +1,4 @@
 //! Performance benchmark spawning many outlined meshes with FPS tracking.
-#![allow(
-    clippy::cast_precision_loss,
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::too_many_lines
-)]
-
 use std::env;
 use std::fmt::Write as FmtWrite;
 use std::fs::File;
@@ -22,6 +15,10 @@ use bevy::window::PresentMode;
 use bevy::winit::WinitSettings;
 use bevy_brp_extras::BrpExtrasPlugin;
 use bevy_brp_extras::PortDisplay;
+use bevy_kana::ToF32;
+use bevy_kana::ToF64;
+use bevy_kana::ToU32;
+use bevy_kana::ToUsize;
 use bevy_liminal::LiminalPlugin;
 use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
@@ -248,7 +245,7 @@ impl BenchmarkState {
             outline_mode: OutlineMethod::default(),
             phase,
             frame_counter: 0,
-            frame_times: Vec::with_capacity(MEASURE_FRAMES as usize),
+            frame_times: Vec::with_capacity(MEASURE_FRAMES.to_usize()),
             results: Vec::with_capacity(SCENARIOS.len() * 2),
             startup_timer: Timer::from_seconds(AUTO_STARTUP_DELAY_SECS, TimerMode::Once),
             exit_timer: Timer::from_seconds(AUTO_EXIT_DELAY_SECS, TimerMode::Once),
@@ -465,48 +462,23 @@ fn spawn_grid(
     let material_handle = materials.add(Color::from(YELLOW));
 
     if count > 100 {
-        // 3D grid: 10x10 front face, depth layers as needed
-        let cols: u32 = 10;
-        let rows: u32 = 10;
-        let face_size = cols * rows;
-        let layers = count.div_ceil(face_size);
-        let h_spacing = viewport.usable_width / cols as f32;
-        let v_spacing = viewport.usable_height / rows as f32;
-        let cube_scale = v_spacing * cube_fill;
-
-        let mut spawned = 0u32;
-        for depth in 0..layers {
-            for row in 0..rows {
-                for col in 0..cols {
-                    if spawned >= count {
-                        break;
-                    }
-                    let col_offset = col as f32 - (cols as f32 - 1.0) / 2.0;
-                    let row_offset = row as f32 - (rows as f32 - 1.0) / 2.0;
-                    let depth_offset = depth as f32;
-                    let position = viewport.center
-                        + col_offset * h_spacing * viewport.right
-                        + row_offset * v_spacing * viewport.up
-                        + depth_offset * v_spacing * DEPTH_SPACING_MULTIPLIER * viewport.forward;
-                    let mut entity = commands.spawn((
-                        Mesh3d(mesh_handle.clone()),
-                        MeshMaterial3d(material_handle.clone()),
-                        Transform::from_translation(position).with_scale(Vec3::splat(cube_scale)),
-                        BenchmarkEntity,
-                    ));
-                    if outline_enabled {
-                        entity.insert(build_outline(width, outline_mode));
-                    }
-                    spawned += 1;
-                }
-            }
-        }
+        spawn_3d_grid(
+            commands,
+            &mesh_handle,
+            &material_handle,
+            count,
+            width,
+            cube_fill,
+            viewport,
+            outline_enabled,
+            outline_mode,
+        );
     } else {
         // 2D grid
-        let cols = (count as f32).sqrt().ceil() as u32;
+        let cols = count.to_f32().sqrt().ceil().to_u32();
         let rows = count.div_ceil(cols);
-        let h_spacing = viewport.usable_width / cols as f32;
-        let v_spacing = viewport.usable_height / rows as f32;
+        let h_spacing = viewport.usable_width / cols.to_f32();
+        let v_spacing = viewport.usable_height / rows.to_f32();
         let cube_scale = v_spacing * cube_fill;
 
         let mut spawned = 0u32;
@@ -515,11 +487,60 @@ fn spawn_grid(
                 if spawned >= count {
                     break;
                 }
-                let col_offset = col as f32 - (cols as f32 - 1.0) / 2.0;
-                let row_offset = row as f32 - (rows as f32 - 1.0) / 2.0;
+                let col_offset = col.to_f32() - (cols.to_f32() - 1.0) / 2.0;
+                let row_offset = row.to_f32() - (rows.to_f32() - 1.0) / 2.0;
                 let position = viewport.center
                     + col_offset * h_spacing * viewport.right
                     + row_offset * v_spacing * viewport.up;
+                let mut entity = commands.spawn((
+                    Mesh3d(mesh_handle.clone()),
+                    MeshMaterial3d(material_handle.clone()),
+                    Transform::from_translation(position).with_scale(Vec3::splat(cube_scale)),
+                    BenchmarkEntity,
+                ));
+                if outline_enabled {
+                    entity.insert(build_outline(width, outline_mode));
+                }
+                spawned += 1;
+            }
+        }
+    }
+}
+
+fn spawn_3d_grid(
+    commands: &mut Commands,
+    mesh_handle: &Handle<Mesh>,
+    material_handle: &Handle<StandardMaterial>,
+    count: u32,
+    width: f32,
+    cube_fill: f32,
+    viewport: &ViewportInfo,
+    outline_enabled: bool,
+    outline_mode: OutlineMethod,
+) {
+    // 3D grid: 10x10 front face, depth layers as needed
+    let cols: u32 = 10;
+    let rows: u32 = 10;
+    let face_size = cols * rows;
+    let layers = count.div_ceil(face_size);
+    let h_spacing = viewport.usable_width / cols.to_f32();
+    let v_spacing = viewport.usable_height / rows.to_f32();
+    let cube_scale = v_spacing * cube_fill;
+
+    let mut spawned = 0u32;
+    for depth in 0..layers {
+        for row in 0..rows {
+            for col in 0..cols {
+                if spawned >= count {
+                    break;
+                }
+                let col_offset = col.to_f32() - (cols.to_f32() - 1.0) / 2.0;
+                let row_offset = row.to_f32() - (rows.to_f32() - 1.0) / 2.0;
+                let depth_offset = depth.to_f32();
+                let position = viewport.center
+                    + col_offset * h_spacing * viewport.right
+                    + row_offset * v_spacing * viewport.up
+                    + depth_offset * v_spacing * DEPTH_SPACING_MULTIPLIER * viewport.forward;
                 let mut entity = commands.spawn((
                     Mesh3d(mesh_handle.clone()),
                     MeshMaterial3d(material_handle.clone()),
@@ -561,139 +582,144 @@ struct BenchmarkTickParams<'w, 's> {
 fn benchmark_tick(mut params: BenchmarkTickParams<'_, '_>) {
     match params.state.phase {
         BenchmarkPhase::Idle => {},
-        BenchmarkPhase::StartupDelay => {
-            if params.state.startup_timer.elapsed_secs() == 0.0
-                && let Ok(mut window) = params.windows.single_mut()
-            {
-                window.focused = true;
-                info!(
-                    "Auto mode: focusing window, waiting {AUTO_STARTUP_DELAY_SECS}s before starting"
-                );
-            }
-            params.state.startup_timer.tick(params.time.delta());
-            if params.state.startup_timer.just_finished() {
-                info!("Startup delay complete, beginning auto benchmark");
-                params.state.phase = BenchmarkPhase::Setup;
-            }
-        },
-        BenchmarkPhase::Setup => {
-            // Despawn previous scenario entities
-            for entity in &params.benchmark_entities {
-                params.commands.entity(entity).despawn();
-            }
+        BenchmarkPhase::StartupDelay => handle_startup_delay_phase(&mut params),
+        BenchmarkPhase::Setup => handle_setup_phase(&mut params),
+        BenchmarkPhase::Warmup => advance_warmup_phase(&mut params.state),
+        BenchmarkPhase::Measure => measure_phase(&mut params.state, &params.time),
+        BenchmarkPhase::Analyze => handle_analyze_phase(&mut params.state),
+        BenchmarkPhase::ExitDelay => handle_exit_delay_phase(&mut params.state, &params.time),
+    }
+}
 
-            let result_name = params.state.result_name();
-            params.state.results.retain(|r| r.name != result_name);
+fn handle_startup_delay_phase(params: &mut BenchmarkTickParams<'_, '_>) {
+    if params.state.startup_timer.elapsed_secs() == 0.0
+        && let Ok(mut window) = params.windows.single_mut()
+    {
+        window.focused = true;
+        info!("Auto mode: focusing window, waiting {AUTO_STARTUP_DELAY_SECS}s before starting");
+    }
 
-            let scenario = &SCENARIOS[params.state.current_scenario];
-            let outline_label = if params.state.outline_enabled {
-                "on"
-            } else {
-                "off"
-            };
-            info!(
-                "Setting up scenario: {} [outline {outline_label}] ({}/{})",
-                scenario.name,
-                params.state.current_scenario + 1,
-                SCENARIOS.len()
-            );
+    params.state.startup_timer.tick(params.time.delta());
+    if params.state.startup_timer.just_finished() {
+        info!("Startup delay complete, beginning auto benchmark");
+        params.state.phase = BenchmarkPhase::Setup;
+    }
+}
 
-            let Ok((camera_transform, projection)) = params.camera_query.single() else {
-                return;
-            };
-            let Ok(window) = params.windows.single() else {
-                return;
-            };
-            let viewport = compute_viewport_info(camera_transform, projection, window);
+fn handle_setup_phase(params: &mut BenchmarkTickParams<'_, '_>) {
+    for entity in &params.benchmark_entities {
+        params.commands.entity(entity).despawn();
+    }
 
-            spawn_scenario(
-                &mut params.commands,
-                &mut params.meshes,
-                &mut params.materials,
-                scenario,
-                &viewport,
-                params.state.outline_enabled,
-                params.state.outline_mode,
-            );
+    let result_name = params.state.result_name();
+    params.state.results.retain(|r| r.name != result_name);
 
-            params.state.frame_counter = 0;
-            params.state.frame_times.clear();
-            params.state.phase = BenchmarkPhase::Warmup;
-        },
-        BenchmarkPhase::Warmup => {
-            params.state.frame_counter += 1;
-            if params.state.frame_counter >= WARMUP_FRAMES {
-                params.state.frame_counter = 0;
-                params.state.phase = BenchmarkPhase::Measure;
-            }
-        },
-        BenchmarkPhase::Measure => {
-            let frame_time_ms = params.time.delta_secs_f64() * MS_PER_SECOND;
-            params.state.frame_times.push(frame_time_ms);
-            params.state.frame_counter += 1;
+    let scenario = &SCENARIOS[params.state.current_scenario];
+    let outline_label = if params.state.outline_enabled {
+        "on"
+    } else {
+        "off"
+    };
+    info!(
+        "Setting up scenario: {} [outline {outline_label}] ({}/{})",
+        scenario.name,
+        params.state.current_scenario + 1,
+        SCENARIOS.len()
+    );
 
-            if params.state.frame_counter >= MEASURE_FRAMES {
-                params.state.phase = BenchmarkPhase::Analyze;
-            }
-        },
-        BenchmarkPhase::Analyze => {
-            let result_name = params.state.result_name();
-            let result = compute_statistics(&result_name, &mut params.state.frame_times);
-            info!(
-                "  {} — avg: {:.2}ms, median: {:.2}ms, p95: {:.2}ms, ~{:.0} FPS",
-                result.name,
-                result.avg_ms,
-                result.median_ms,
-                result.p95_ms,
-                result.avg_fps()
-            );
-            if let Some(existing) = params
-                .state
-                .results
-                .iter_mut()
-                .find(|r| r.name == result.name)
-            {
-                *existing = result;
-            } else {
-                params.state.results.push(result);
-            }
+    let Ok((camera_transform, projection)) = params.camera_query.single() else {
+        return;
+    };
+    let Ok(window) = params.windows.single() else {
+        return;
+    };
+    let viewport = compute_viewport_info(camera_transform, projection, window);
 
-            if !params.state.outline_enabled {
-                // Just finished "off" run — now do "on" for the same scenario
-                params.state.outline_enabled = true;
-                params.state.phase = BenchmarkPhase::Setup;
-            } else if params.state.mode == BenchmarkMode::Auto
-                && params.state.current_scenario + 1 < SCENARIOS.len()
-            {
-                // Finished "on" run in auto mode — advance to next scenario
-                params.state.outline_enabled = false;
-                params.state.current_scenario += 1;
-                params.state.phase = BenchmarkPhase::Setup;
-            } else if params.state.mode == BenchmarkMode::Auto {
-                // Finished last scenario in auto mode
-                params.state.outline_enabled = false;
-                write_results(&params.state.results);
-                if params.state.exit_on_complete {
-                    info!("Auto benchmark complete, exiting in {AUTO_EXIT_DELAY_SECS}s");
-                    params.state.phase = BenchmarkPhase::ExitDelay;
-                } else {
-                    info!("Auto benchmark complete");
-                    params.state.mode = BenchmarkMode::Interactive;
-                    params.state.phase = BenchmarkPhase::Idle;
-                }
-            } else {
-                // Finished "on" run in interactive mode
-                params.state.outline_enabled = false;
-                params.state.phase = BenchmarkPhase::Idle;
-            }
-        },
-        BenchmarkPhase::ExitDelay => {
-            params.state.exit_timer.tick(params.time.delta());
-            if params.state.exit_timer.just_finished() {
-                info!("Exiting");
-                std::process::exit(0);
-            }
-        },
+    spawn_scenario(
+        &mut params.commands,
+        &mut params.meshes,
+        &mut params.materials,
+        scenario,
+        &viewport,
+        params.state.outline_enabled,
+        params.state.outline_mode,
+    );
+
+    params.state.frame_counter = 0;
+    params.state.frame_times.clear();
+    params.state.phase = BenchmarkPhase::Warmup;
+}
+
+const fn advance_warmup_phase(state: &mut BenchmarkState) {
+    state.frame_counter += 1;
+    if state.frame_counter >= WARMUP_FRAMES {
+        state.frame_counter = 0;
+        state.phase = BenchmarkPhase::Measure;
+    }
+}
+
+fn measure_phase(state: &mut BenchmarkState, time: &Time<Real>) {
+    let frame_time_ms = time.delta_secs_f64() * MS_PER_SECOND;
+    state.frame_times.push(frame_time_ms);
+    state.frame_counter += 1;
+
+    if state.frame_counter >= MEASURE_FRAMES {
+        state.phase = BenchmarkPhase::Analyze;
+    }
+}
+
+fn handle_analyze_phase(state: &mut BenchmarkState) {
+    let result_name = state.result_name();
+    let result = compute_statistics(&result_name, &mut state.frame_times);
+    info!(
+        "  {} — avg: {:.2}ms, median: {:.2}ms, p95: {:.2}ms, ~{:.0} FPS",
+        result.name,
+        result.avg_ms,
+        result.median_ms,
+        result.p95_ms,
+        result.avg_fps()
+    );
+
+    if let Some(existing) = state.results.iter_mut().find(|r| r.name == result.name) {
+        *existing = result;
+    } else {
+        state.results.push(result);
+    }
+
+    if !state.outline_enabled {
+        state.outline_enabled = true;
+        state.phase = BenchmarkPhase::Setup;
+        return;
+    }
+
+    if state.mode == BenchmarkMode::Auto && state.current_scenario + 1 < SCENARIOS.len() {
+        state.outline_enabled = false;
+        state.current_scenario += 1;
+        state.phase = BenchmarkPhase::Setup;
+        return;
+    }
+
+    state.outline_enabled = false;
+    if state.mode == BenchmarkMode::Auto {
+        write_results(&state.results);
+        if state.exit_on_complete {
+            info!("Auto benchmark complete, exiting in {AUTO_EXIT_DELAY_SECS}s");
+            state.phase = BenchmarkPhase::ExitDelay;
+        } else {
+            info!("Auto benchmark complete");
+            state.mode = BenchmarkMode::Interactive;
+            state.phase = BenchmarkPhase::Idle;
+        }
+    } else {
+        state.phase = BenchmarkPhase::Idle;
+    }
+}
+
+fn handle_exit_delay_phase(state: &mut BenchmarkState, time: &Time<Real>) {
+    state.exit_timer.tick(time.delta());
+    if state.exit_timer.just_finished() {
+        info!("Exiting");
+        std::process::exit(0);
     }
 }
 
@@ -769,23 +795,46 @@ fn update_hud(
     if !hud_timer.0.tick(time.delta()).just_finished() {
         return;
     }
+    text.0 = build_hud_text(&state, &diagnostics);
+}
+
+struct LiveMetrics {
+    fps:        f64,
+    frame_time: f64,
+}
+
+fn build_hud_text(state: &BenchmarkState, diagnostics: &DiagnosticsStore) -> String {
     let scenario = &SCENARIOS[state.current_scenario];
-    let mode_label = match state.mode {
+    let mode_label = benchmark_mode_label(&state.mode);
+    let phase_info = benchmark_phase_label(state);
+    let progress = auto_progress_label(state);
+    let col = results_label_width();
+    let outline_mode_name = outline_mode_label(state.outline_mode);
+    let live_metrics = live_metrics(diagnostics);
+    let bench_stats = benchmark_stats_line(state.frame_times.as_slice(), col);
+
+    let mut hud = format!(
+        "[{mode_label}] {}{progress}  Mode: {outline_mode_name}\n{phase_info}\n\n{:<col$}FPS: {fps:<4.0}  Frame: {frame_time:.2}ms{bench_stats}",
+        scenario.name,
+        "Bevy:",
+        fps = live_metrics.fps,
+        frame_time = live_metrics.frame_time,
+    );
+
+    append_results_section(&mut hud, state, col, outline_mode_name);
+    hud.push_str("\n\n#: Switch scenario  M: Cycle mode  R: Auto run  L: Log results");
+    hud
+}
+
+const fn benchmark_mode_label(mode: &BenchmarkMode) -> &'static str {
+    match mode {
         BenchmarkMode::Auto => "Auto",
         BenchmarkMode::Interactive => "Interactive",
-    };
+    }
+}
 
-    let live_fps = diagnostics
-        .get(&FrameTimeDiagnosticsPlugin::FPS)
-        .and_then(bevy::diagnostic::Diagnostic::smoothed)
-        .unwrap_or(0.0);
-
-    let live_frame_time = diagnostics
-        .get(&FrameTimeDiagnosticsPlugin::FRAME_TIME)
-        .and_then(bevy::diagnostic::Diagnostic::smoothed)
-        .unwrap_or(0.0);
-
-    let phase_info = match state.phase {
+fn benchmark_phase_label(state: &BenchmarkState) -> String {
+    match state.phase {
         BenchmarkPhase::Idle => "Idle".to_string(),
         BenchmarkPhase::StartupDelay => {
             let remaining = AUTO_STARTUP_DELAY_SECS - state.startup_timer.elapsed_secs();
@@ -803,69 +852,99 @@ fn update_hud(
             let remaining = AUTO_EXIT_DELAY_SECS - state.exit_timer.elapsed_secs();
             format!("Exiting in {remaining:.0}s...")
         },
-    };
+    }
+}
 
-    let progress = if state.mode == BenchmarkMode::Auto {
+fn auto_progress_label(state: &BenchmarkState) -> String {
+    if state.mode == BenchmarkMode::Auto {
         format!(" ({}/{})", state.current_scenario + 1, SCENARIOS.len())
     } else {
         String::new()
-    };
+    }
+}
 
-    // Find the widest label (including key prefix "N Name off/on:") across all rows
+fn results_label_width() -> usize {
     let mut max_label_len = "Bench:".len();
-    for s in SCENARIOS {
-        // "N " prefix + name + " on:" (longest suffix)
-        max_label_len = max_label_len.max(s.name.len() + 6);
+    for scenario in SCENARIOS {
+        max_label_len = max_label_len.max(scenario.name.len() + 6);
     }
-    // +1 for the space after the label
-    let col = max_label_len + 1;
+    max_label_len + 1
+}
 
-    let bench_stats = if state.frame_times.is_empty() {
-        String::new()
-    } else {
-        let sum: f64 = state.frame_times.iter().sum();
-        let avg_ms = sum / state.frame_times.len() as f64;
-        let avg_fps = MS_PER_SECOND / avg_ms;
-        format!(
-            "\n{:<col$}FPS: {avg_fps:<4.0}  Frame: {avg_ms:.2}ms",
-            "Bench:",
-        )
-    };
+fn live_metrics(diagnostics: &DiagnosticsStore) -> LiveMetrics {
+    LiveMetrics {
+        fps: diagnostics
+            .get(&FrameTimeDiagnosticsPlugin::FPS)
+            .and_then(bevy::diagnostic::Diagnostic::smoothed)
+            .unwrap_or(0.0),
+        frame_time: diagnostics
+            .get(&FrameTimeDiagnosticsPlugin::FRAME_TIME)
+            .and_then(bevy::diagnostic::Diagnostic::smoothed)
+            .unwrap_or(0.0),
+    }
+}
 
-    let outline_mode_name = outline_mode_label(state.outline_mode);
-    let mut hud = format!(
-        "[{mode_label}] {}{progress}  Mode: {outline_mode_name}\n{phase_info}\n\n{:<col$}FPS: {live_fps:<4.0}  Frame: {live_frame_time:.2}ms{bench_stats}",
-        scenario.name, "Bevy:",
-    );
+fn benchmark_stats_line(frame_times: &[f64], col: usize) -> String {
+    if frame_times.is_empty() {
+        return String::new();
+    }
 
+    let sum: f64 = frame_times.iter().sum();
+    let avg_ms = sum / frame_times.len().to_f64();
+    let avg_fps = MS_PER_SECOND / avg_ms;
+    format!("\n{:<col$}FPS: {avg_fps:<4.0}  Frame: {avg_ms:.2}ms", "Bench:")
+}
+
+fn append_results_section(
+    hud: &mut String,
+    state: &BenchmarkState,
+    col: usize,
+    outline_mode_name: &str,
+) {
     hud.push_str("\n\n--- Results ---");
-    for s in SCENARIOS {
-        let key_char = key_to_char(s.key);
-        for (i, suffix) in ["off", "on"].iter().enumerate() {
-            let result_name = format!("{} {suffix} ({outline_mode_name})", s.name);
-            let label = if i == 0 {
-                format!("{key_char} {result_name}:")
-            } else {
-                format!("  {result_name}:")
-            };
-            if let Some(r) = state.results.iter().find(|r| r.name == result_name) {
-                let _ = write!(
-                    hud,
-                    "\n{label:<col$}FPS: {:<4.0}  Frame: {:.2}ms  med: {:.2}ms  p95: {:.2}ms",
-                    r.avg_fps(),
-                    r.avg_ms,
-                    r.median_ms,
-                    r.p95_ms,
-                );
-            } else {
-                let _ = write!(hud, "\n{label:<col$}---");
-            }
-        }
+    for scenario in SCENARIOS {
+        append_scenario_results(hud, state, scenario, col, outline_mode_name);
     }
+}
 
-    hud.push_str("\n\n#: Switch scenario  M: Cycle mode  R: Auto run  L: Log results");
+fn append_scenario_results(
+    hud: &mut String,
+    state: &BenchmarkState,
+    scenario: &ScenarioDefinition,
+    col: usize,
+    outline_mode_name: &str,
+) {
+    let key_char = key_to_char(scenario.key);
+    for (index, suffix) in ["off", "on"].iter().enumerate() {
+        let result_name = format!("{} {suffix} ({outline_mode_name})", scenario.name);
+        let label = if index == 0 {
+            format!("{key_char} {result_name}:")
+        } else {
+            format!("  {result_name}:")
+        };
+        append_result_row(hud, state, &result_name, &label, col);
+    }
+}
 
-    text.0 = hud;
+fn append_result_row(
+    hud: &mut String,
+    state: &BenchmarkState,
+    result_name: &str,
+    label: &str,
+    col: usize,
+) {
+    if let Some(result) = state.results.iter().find(|r| r.name == result_name) {
+        let _ = write!(
+            hud,
+            "\n{label:<col$}FPS: {:<4.0}  Frame: {:.2}ms  med: {:.2}ms  p95: {:.2}ms",
+            result.avg_fps(),
+            result.avg_ms,
+            result.median_ms,
+            result.p95_ms,
+        );
+    } else {
+        let _ = write!(hud, "\n{label:<col$}---");
+    }
 }
 
 // --- Statistics ---
@@ -875,7 +954,7 @@ fn compute_statistics(name: &str, frame_times: &mut [f64]) -> ScenarioResult {
 
     let len = frame_times.len();
     let sum: f64 = frame_times.iter().sum();
-    let avg_ms = sum / len as f64;
+    let avg_ms = sum / len.to_f64();
     let median_ms = percentile(frame_times, 50.0);
     let p95_ms = percentile(frame_times, 95.0);
     let p99_ms = percentile(frame_times, 99.0);
@@ -884,7 +963,7 @@ fn compute_statistics(name: &str, frame_times: &mut [f64]) -> ScenarioResult {
 
     ScenarioResult {
         name: (*name).to_string(),
-        frames: len as u32,
+        frames: len.to_u32(),
         avg_ms,
         median_ms,
         p95_ms,
@@ -898,7 +977,8 @@ fn percentile(sorted: &[f64], pct: f64) -> f64 {
     if sorted.is_empty() {
         return 0.0;
     }
-    let idx = (pct / 100.0 * (sorted.len() - 1) as f64).round() as usize;
+    let len_f64 = (sorted.len() - 1).to_f64();
+    let idx = (pct / 100.0 * len_f64).round().to_u32().to_usize();
     sorted[idx.min(sorted.len() - 1)]
 }
 

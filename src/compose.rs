@@ -20,16 +20,16 @@ use wgpu_types::ShaderStages;
 use wgpu_types::TextureFormat;
 use wgpu_types::TextureSampleType;
 
-use crate::shaders::COMPOSE_SHADER_HANDLE;
+use super::shaders::COMPOSE_SHADER_HANDLE;
 
 #[derive(Clone, Resource)]
-pub struct ComposeOutputPipeline {
-    pub layout:               BindGroupLayoutDescriptor,
-    pub msaa_layout:          BindGroupLayoutDescriptor,
-    pub pipeline_id:          CachedRenderPipelineId,
-    pub hdr_pipeline_id:      CachedRenderPipelineId,
-    pub msaa_pipeline_id:     CachedRenderPipelineId,
-    pub msaa_hdr_pipeline_id: CachedRenderPipelineId,
+pub(super) struct ComposeOutputPipeline {
+    pub(super) layout:               BindGroupLayoutDescriptor,
+    pub(super) msaa_layout:          BindGroupLayoutDescriptor,
+    pub(super) pipeline_id:          CachedRenderPipelineId,
+    pub(super) hdr_pipeline_id:      CachedRenderPipelineId,
+    pub(super) msaa_pipeline_id:     CachedRenderPipelineId,
+    pub(super) msaa_hdr_pipeline_id: CachedRenderPipelineId,
 }
 
 impl FromWorld for ComposeOutputPipeline {

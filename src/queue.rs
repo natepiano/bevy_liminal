@@ -16,23 +16,22 @@ use bevy_render::render_resource::SpecializedMeshPipelines;
 use bevy_render::view::ExtractedView;
 use bevy_render::view::RenderVisibleEntities;
 
-use super::ActiveOutlineModes;
 use super::DrawHull;
 use super::DrawOutline;
-use super::ExtractedOutlineUniforms;
-use super::HullOutlinePhase;
-use super::JfaOutlinePhase;
-use super::OutlineCamera;
-use super::OutlineMethod;
 use super::hull_pipeline::HullPipeline;
 use super::hull_pipeline::HullPipelineKey;
+use super::mask::HullOutlinePhase;
+use super::mask::JfaOutlinePhase;
+use super::mask::OutlineBatchSetKey;
+use super::mask::OutlineBinKey;
 use super::mask_pipeline::MaskPipelineKey;
 use super::mask_pipeline::MeshMaskPipeline;
-use crate::mask::OutlineBatchSetKey;
-use crate::mask::OutlineBinKey;
+use super::types::ActiveOutlineModes;
+use super::types::ExtractedOutlineUniforms;
+use super::types::OutlineCamera;
+use super::types::OutlineMethod;
 
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn queue_outline(
+pub(super) fn queue_outline(
     extracted_outlines: Res<ExtractedOutlineUniforms>,
     draw_functions: Res<DrawFunctions<JfaOutlinePhase>>,
     mut outline_phases: ResMut<ViewBinnedRenderPhases<JfaOutlinePhase>>,
@@ -59,14 +58,8 @@ pub fn queue_outline(
 ) {
     let draw_function = draw_functions.read().id::<DrawOutline>();
 
-    for (
-        _view_entity,
-        view,
-        visible_entities,
-        msaa,
-        has_normal_prepass,
-        has_motion_vector_prepass,
-    ) in views.iter()
+    for (_, view, visible_entities, msaa, has_normal_prepass, has_motion_vector_prepass) in
+        views.iter()
     {
         let Some(outline_phase) = outline_phases.get_mut(&view.retained_view_entity) else {
             continue;
@@ -89,14 +82,14 @@ pub fn queue_outline(
             }
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(main_entity)
             else {
-                tracing::warn!(target: "bevy_liminal", "No mesh instance found for entity {:?}", main_entity);
+                tracing::warn!(target: "bevy_liminal", "No mesh instance found for entity {main_entity:?}");
                 continue;
             };
 
             let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
 
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
-                tracing::warn!(target: "bevy_liminal", "No mesh found for entity {:?}", main_entity);
+                tracing::warn!(target: "bevy_liminal", "No mesh found for entity {main_entity:?}");
                 continue;
             };
 
@@ -143,8 +136,7 @@ pub fn queue_outline(
     }
 }
 
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn queue_hull_outline(
+pub(super) fn queue_hull_outline(
     active: Res<ActiveOutlineModes>,
     extracted_outlines: Res<ExtractedOutlineUniforms>,
     draw_functions: Res<DrawFunctions<HullOutlinePhase>>,
@@ -174,7 +166,7 @@ pub fn queue_hull_outline(
 
     let draw_function = draw_functions.read().id::<DrawHull>();
 
-    for (_view_entity, view, visible_entities, msaa, has_normal_prepass) in views.iter() {
+    for (_, view, visible_entities, msaa, has_normal_prepass) in views.iter() {
         let Some(outline_phase) = outline_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
@@ -200,14 +192,14 @@ pub fn queue_hull_outline(
 
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(main_entity)
             else {
-                tracing::warn!(target: "bevy_liminal", "No mesh instance found for entity {:?}", main_entity);
+                tracing::warn!(target: "bevy_liminal", "No mesh instance found for entity {main_entity:?}");
                 continue;
             };
 
             let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
 
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
-                tracing::warn!(target: "bevy_liminal", "No mesh found for entity {:?}", main_entity);
+                tracing::warn!(target: "bevy_liminal", "No mesh found for entity {main_entity:?}");
                 continue;
             };
 

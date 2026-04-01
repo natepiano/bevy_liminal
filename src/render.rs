@@ -17,16 +17,16 @@ use bevy_render::renderer::RenderDevice;
 use bevy_render::renderer::RenderQueue;
 use bytemuck::Zeroable;
 
-use super::ActiveOutlineModes;
-use super::ExtractedOutlineUniforms;
-use super::HullOutlinePhase;
 use super::hull_pipeline::HullPipeline;
+use super::mask::HullOutlinePhase;
 use super::mask::JfaOutlinePhase;
 use super::mask_pipeline::MeshMaskPipeline;
 use super::texture::FloodTextures;
+use super::types::ActiveOutlineModes;
+use super::types::ExtractedOutlineUniforms;
 use super::uniforms::OutlineUniform;
 
-pub struct SetOutlineBindGroup<const I: usize>();
+pub(super) struct SetOutlineBindGroup<const I: usize>();
 
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOutlineBindGroup<I> {
     type Param = SRes<OutlineBindGroup>;
@@ -34,9 +34,9 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOutlineBindGroup<I> {
     type ItemQuery = ();
 
     fn render<'w>(
-        _item: &P,
-        _view: ROQueryItem<'w, '_, Self::ViewQuery>,
-        _entity_data: Option<()>,
+        _: &P,
+        (): ROQueryItem<'w, '_, Self::ViewQuery>,
+        _: Option<()>,
         outline_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -53,16 +53,16 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOutlineBindGroup<I> {
 }
 
 #[derive(Resource)]
-pub struct OutlineUniformBuffer(pub GpuArrayBuffer<OutlineUniform>);
+pub(super) struct OutlineUniformBuffer(pub GpuArrayBuffer<OutlineUniform>);
 
 #[derive(Resource, Default)]
-pub struct OutlineBindGroup(pub Option<BindGroup>);
+pub(super) struct OutlineBindGroup(pub(super) Option<BindGroup>);
 
 #[derive(Resource)]
-pub struct HullOutlineUniformBuffer(pub GpuArrayBuffer<OutlineUniform>);
+pub(super) struct HullOutlineUniformBuffer(pub(super) GpuArrayBuffer<OutlineUniform>);
 
 #[derive(Resource, Default)]
-pub struct HullOutlineBindGroup(pub Option<BindGroup>);
+pub(super) struct HullOutlineBindGroup(pub(super) Option<BindGroup>);
 
 /// Pushes `OutlineUniform` data into the `GpuArrayBuffer` in the same order
 /// that `batch_and_prepare_binned_render_phase` pushes `MeshUniform` data,
@@ -72,7 +72,7 @@ pub struct HullOutlineBindGroup(pub Option<BindGroup>);
 /// the bins unconditionally. In the CPU path it calls `get_binned_batch_data`
 /// which skips entities whose mesh instance is missing. We must mirror that
 /// skip logic exactly so our indices stay aligned.
-pub fn prepare_outline_buffer(
+pub(super) fn prepare_outline_buffer(
     render_mesh_instances: Res<RenderMeshInstances>,
     extracted_outlines: Res<ExtractedOutlineUniforms>,
     outline_phases: Res<ViewBinnedRenderPhases<JfaOutlinePhase>>,
@@ -140,7 +140,7 @@ pub fn prepare_outline_buffer(
 }
 
 /// Writes the outline buffer to the GPU and creates a single bind group.
-pub fn prepare_outline_bind_group(
+pub(super) fn prepare_outline_bind_group(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
@@ -165,7 +165,7 @@ pub fn prepare_outline_bind_group(
     }
 }
 
-pub struct SetHullOutlineBindGroup<const I: usize>();
+pub(super) struct SetHullOutlineBindGroup<const I: usize>();
 
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetHullOutlineBindGroup<I> {
     type Param = SRes<HullOutlineBindGroup>;
@@ -173,9 +173,9 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetHullOutlineBindGroup<
     type ItemQuery = ();
 
     fn render<'w>(
-        _item: &P,
-        _view: ROQueryItem<'w, '_, Self::ViewQuery>,
-        _entity_data: Option<()>,
+        _: &P,
+        (): ROQueryItem<'w, '_, Self::ViewQuery>,
+        _: Option<()>,
         outline_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -191,10 +191,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetHullOutlineBindGroup<
     }
 }
 
-pub struct SetHullDepthBindGroup<const I: usize>();
+pub(super) struct SetHullDepthBindGroup<const I: usize>();
 
 #[derive(Component)]
-pub struct HullDepthViewBindGroup(pub BindGroup);
+pub(super) struct HullDepthViewBindGroup(pub(super) BindGroup);
 
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetHullDepthBindGroup<I> {
     type Param = ();
@@ -202,10 +202,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetHullDepthBindGroup<I>
     type ItemQuery = ();
 
     fn render<'w>(
-        _item: &P,
+        _: &P,
         depth_bind_group: ROQueryItem<'w, '_, Self::ViewQuery>,
-        _entity_data: Option<()>,
-        _param: SystemParamItem<'w, '_, Self::Param>,
+        _: Option<()>,
+        (): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         pass.set_bind_group(I, &depth_bind_group.0, &[]);
@@ -213,7 +213,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetHullDepthBindGroup<I>
     }
 }
 
-pub fn prepare_hull_depth_view_bind_groups(
+pub(super) fn prepare_hull_depth_view_bind_groups(
     active: Res<ActiveOutlineModes>,
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -250,7 +250,7 @@ pub fn prepare_hull_depth_view_bind_groups(
     }
 }
 
-pub fn prepare_hull_outline_buffer(
+pub(super) fn prepare_hull_outline_buffer(
     active: Res<ActiveOutlineModes>,
     render_mesh_instances: Res<RenderMeshInstances>,
     extracted_outlines: Res<ExtractedOutlineUniforms>,
@@ -316,7 +316,7 @@ pub fn prepare_hull_outline_buffer(
     }
 }
 
-pub fn prepare_hull_outline_bind_group(
+pub(super) fn prepare_hull_outline_bind_group(
     active: Res<ActiveOutlineModes>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,

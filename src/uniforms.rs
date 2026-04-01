@@ -1,22 +1,20 @@
-#![allow(dead_code)]
-
 use bevy::prelude::*;
 use bevy::render::render_resource::ShaderType;
 use bytemuck::Pod;
 use bytemuck::Zeroable;
 
-use super::ExtractedOutline;
-use super::OutlineMethod;
+use super::types::ExtractedOutline;
+use super::types::OutlineMethod;
 
 #[derive(Debug, Clone, ShaderType, Pod, Zeroable, Copy)]
 #[repr(C)]
-pub struct OutlineUniform {
-    pub intensity:     f32,
-    pub width:         f32,
-    pub priority:      f32,
-    pub overlap:       f32,
-    pub outline_color: Vec4,
-    pub owner_data:    Vec4,
+pub(super) struct OutlineUniform {
+    pub(super) intensity:     f32,
+    pub(super) width:         f32,
+    pub(super) priority:      f32,
+    pub(super) overlap:       f32,
+    pub(super) outline_color: Vec4,
+    pub(super) owner_data:    Vec4,
 }
 
 impl From<&ExtractedOutline> for OutlineUniform {
