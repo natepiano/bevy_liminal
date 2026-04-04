@@ -163,7 +163,7 @@ pub struct Outline {
     pub activity:            OutlineActivity,
     /// Set internally by propagation. When `Grouped`, all propagated children share this
     /// entity's ID as the owner for overlap resolution. Not user-facing.
-    pub(crate) group_source: Option<Entity>,
+    pub(super) group_source: Option<Entity>,
 }
 
 impl Outline {
@@ -195,7 +195,6 @@ impl Outline {
 /// - `ScreenHull`: Vertex extrusion with pixel width. Best for 3D volumetric meshes where outline
 ///   thickness should remain constant on screen.
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq, Default)]
-#[non_exhaustive]
 pub enum OutlineMethod {
     /// Screen-space silhouette expansion via jump-flood algorithm. Width is in pixels.
     #[default]
@@ -222,7 +221,6 @@ pub enum OutlineMethod {
 /// - `PerMesh`: Every individual `Mesh3d` gets its own distinct outline boundary, even if it's a
 ///   child of a larger entity. Child spheres inside a cube each show their own outline.
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq, Default)]
-#[non_exhaustive]
 pub enum OverlapMode {
     /// Overlapping outlines merge into one shared silhouette.
     #[default]
@@ -235,7 +233,6 @@ pub enum OverlapMode {
 
 /// Visual style of the outline stroke.
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq, Default)]
-#[non_exhaustive]
 pub enum LineStyle {
     /// A continuous solid stroke.
     #[default]
@@ -244,7 +241,6 @@ pub enum LineStyle {
 
 /// Whether an `Outline` is active without removing the component.
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq, Default)]
-#[non_exhaustive]
 pub enum OutlineActivity {
     /// The outline participates in extraction and rendering.
     #[default]

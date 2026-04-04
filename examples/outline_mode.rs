@@ -240,14 +240,12 @@ fn toggle_outline_mode(
         OutlineMethod::JumpFlood => OutlineMethod::WorldHull,
         OutlineMethod::WorldHull => OutlineMethod::ScreenHull,
         OutlineMethod::ScreenHull => OutlineMethod::JumpFlood,
-        _ => unreachable!(),
     };
 
     let (width, overlap) = match mode_toggle.mode {
         OutlineMethod::JumpFlood => (width_control.jump_flood_width_px, OverlapMode::Merged),
         OutlineMethod::WorldHull => (width_control.hull_width_world, overlap_control.hull_overlap),
         OutlineMethod::ScreenHull => (width_control.shell_width_px, overlap_control.shell_overlap),
-        _ => unreachable!(),
     };
 
     for mut outline in &mut outline_query {
@@ -255,7 +253,7 @@ fn toggle_outline_mode(
     }
 }
 
-fn rebuilt_outline_for_mode(
+const fn rebuilt_outline_for_mode(
     current: &Outline,
     mode: OutlineMethod,
     width: f32,
@@ -276,7 +274,6 @@ fn rebuilt_outline_for_mode(
             .with_color(current.color)
             .with_overlap(overlap)
             .build(),
-        _ => unreachable!(),
     }
 }
 
@@ -332,7 +329,6 @@ fn adjust_outline_width(
                 outline.width = next;
             }
         },
-        _ => unreachable!(),
     }
 }
 
@@ -355,13 +351,12 @@ fn adjust_overlap(
     let current = match mode_toggle.mode {
         OutlineMethod::WorldHull => &mut overlap_control.hull_overlap,
         OutlineMethod::ScreenHull => &mut overlap_control.shell_overlap,
-        OutlineMethod::JumpFlood | _ => unreachable!(),
+        OutlineMethod::JumpFlood => return,
     };
 
     *current = match *current {
         OverlapMode::Merged => OverlapMode::PerMesh,
-        OverlapMode::PerMesh => OverlapMode::Merged,
-        _ => unreachable!(),
+        OverlapMode::PerMesh | OverlapMode::Grouped => OverlapMode::Merged,
     };
 
     let value = *current;
@@ -380,7 +375,6 @@ fn update_ui(
         OutlineMethod::JumpFlood => "Mode: JumpFlood (M)",
         OutlineMethod::WorldHull => "Mode: WorldHull (M)",
         OutlineMethod::ScreenHull => "Mode: ScreenHull (M)",
-        _ => unreachable!(),
     };
 
     let width_line = match mode_toggle.mode {
@@ -402,7 +396,6 @@ fn update_ui(
                 width_control.shell_width_px
             )
         },
-        _ => unreachable!(),
     };
 
     let overlap_line = match mode_toggle.mode {
@@ -419,16 +412,15 @@ fn update_ui(
                 overlap_mode_label(overlap_control.shell_overlap)
             )
         },
-        _ => unreachable!(),
     };
 
     text_query.0 = format!("{mode_line}\n{width_line}\n{overlap_line}");
 }
 
-fn overlap_mode_label(mode: OverlapMode) -> &'static str {
+const fn overlap_mode_label(mode: OverlapMode) -> &'static str {
     match mode {
         OverlapMode::Merged => "Merged",
         OverlapMode::PerMesh => "PerMesh",
-        _ => unreachable!(),
+        OverlapMode::Grouped => "Grouped",
     }
 }

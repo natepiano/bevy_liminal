@@ -31,6 +31,7 @@ use bevy::render::renderer::RenderContext;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::renderer::RenderQueue;
 use bevy::render::texture::CachedTexture;
+use bevy_kana::ToUsize;
 use bevy_render::render_resource::TextureView;
 use bevy_render::render_resource::binding_types::texture_depth_2d;
 
@@ -204,7 +205,7 @@ impl<'w> JumpFloodPass<'w> {
         render_pass.set_bind_group(
             0,
             &bind_group,
-            &[self.pipeline.lookup_offsets[size as usize]],
+            &[self.pipeline.lookup_offsets[size.to_usize()]],
         );
         render_pass.draw(0..3, 0..1);
     }

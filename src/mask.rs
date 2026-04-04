@@ -48,26 +48,17 @@ impl PhaseItem for JfaOutlinePhase {
     #[inline]
     fn entity(&self) -> Entity { self.entity }
 
-    fn main_entity(&self) -> bevy::render::sync_world::MainEntity { self.main_entity }
+    fn main_entity(&self) -> MainEntity { self.main_entity }
 
-    fn draw_function(&self) -> bevy::render::render_phase::DrawFunctionId {
-        self.batch_set_key.draw_function
-    }
+    fn draw_function(&self) -> DrawFunctionId { self.batch_set_key.draw_function }
 
-    fn batch_range(&self) -> &std::ops::Range<u32> { &self.batch_range }
+    fn batch_range(&self) -> &Range<u32> { &self.batch_range }
 
-    fn batch_range_mut(&mut self) -> &mut std::ops::Range<u32> { &mut self.batch_range }
+    fn batch_range_mut(&mut self) -> &mut Range<u32> { &mut self.batch_range }
 
-    fn extra_index(&self) -> bevy::render::render_phase::PhaseItemExtraIndex {
-        self.extra_index.clone()
-    }
+    fn extra_index(&self) -> PhaseItemExtraIndex { self.extra_index.clone() }
 
-    fn batch_range_and_extra_index_mut(
-        &mut self,
-    ) -> (
-        &mut Range<u32>,
-        &mut bevy::render::render_phase::PhaseItemExtraIndex,
-    ) {
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
         (&mut self.batch_range, &mut self.extra_index)
     }
 }

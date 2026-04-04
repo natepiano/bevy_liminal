@@ -125,7 +125,6 @@ fn spawn_outline_grid(
                 .with_color(OUTLINE_COLOR)
                 .with_intensity(OUTLINE_INTENSITY)
                 .build(),
-            _ => unreachable!(),
         };
 
         commands
@@ -324,7 +323,6 @@ fn toggle_overlap(
             OverlapMode::Merged => OverlapMode::Grouped,
             OverlapMode::Grouped => OverlapMode::PerMesh,
             OverlapMode::PerMesh => OverlapMode::Merged,
-            _ => outline.overlap,
         };
         outline.overlap = toggled;
         new_mode = Some(toggled);
@@ -337,7 +335,6 @@ fn toggle_overlap(
             OverlapMode::Merged => "Merged",
             OverlapMode::Grouped => "Grouped",
             OverlapMode::PerMesh => "PerMesh",
-            _ => "Unknown",
         };
         **text = format!("Overlap: {label_str}");
     }

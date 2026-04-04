@@ -266,7 +266,6 @@ const fn outline_mode_label(mode: OutlineMethod) -> &'static str {
         OutlineMethod::JumpFlood => "JumpFlood",
         OutlineMethod::WorldHull => "WorldHull",
         OutlineMethod::ScreenHull => "ScreenHull",
-        _ => unreachable!(),
     }
 }
 
@@ -275,7 +274,6 @@ const fn next_outline_mode(mode: OutlineMethod) -> OutlineMethod {
         OutlineMethod::JumpFlood => OutlineMethod::WorldHull,
         OutlineMethod::WorldHull => OutlineMethod::ScreenHull,
         OutlineMethod::ScreenHull => OutlineMethod::JumpFlood,
-        _ => unreachable!(),
     }
 }
 
@@ -440,7 +438,6 @@ fn build_outline(width: f32, outline_mode: OutlineMethod) -> Outline {
             .with_color(random_outline_color())
             .with_overlap(OverlapMode::PerMesh)
             .build(),
-        _ => unreachable!(),
     }
 }
 
