@@ -8,7 +8,7 @@ use bevy_render::view::RetainedViewEntity;
 use super::mask::HullOutlinePhase;
 use super::mask::JfaOutlinePhase;
 
-pub(super) fn update_views(
+pub(crate) fn update_views(
     mut outline_phases: ResMut<ViewBinnedRenderPhases<JfaOutlinePhase>>,
     mut hull_outline_phases: ResMut<ViewBinnedRenderPhases<HullOutlinePhase>>,
     query: Extract<Query<(Entity, &Camera), With<Camera3d>>>,

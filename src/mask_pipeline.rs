@@ -40,7 +40,7 @@ use super::shaders::MASK_SHADER_HANDLE;
 use super::uniforms::OutlineUniform;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(super) enum HullPresence {
+pub(crate) enum HullPresence {
     Absent,
     Present,
 }
@@ -50,14 +50,14 @@ impl HullPresence {
 }
 
 #[derive(Resource)]
-pub(super) struct MeshMaskPipeline {
-    pub(super) mesh_pipeline:                MeshPipeline,
-    pub(super) outline_bind_group_layout:    BindGroupLayoutDescriptor,
+pub(crate) struct MeshMaskPipeline {
+    pub(crate) mesh_pipeline:                MeshPipeline,
+    pub(crate) outline_bind_group_layout:    BindGroupLayoutDescriptor,
     /// `Some(N)` on WebGL2 where only fixed-size uniform arrays are available,
     /// `None` on native GPU where unbounded storage buffer arrays are supported.
     /// When `Some`, injects the `PER_OBJECT_BUFFER_BATCH_SIZE` shader def so the
     /// WGSL shader declares a fixed-size array instead of an unbounded one.
-    pub(super) per_object_buffer_batch_size: Option<u32>,
+    pub(crate) per_object_buffer_batch_size: Option<u32>,
 }
 
 impl FromWorld for MeshMaskPipeline {
@@ -88,9 +88,9 @@ impl FromWorld for MeshMaskPipeline {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(super) struct MaskPipelineKey {
-    pub(super) mesh_key:      MeshPipelineKey,
-    pub(super) hull_presence: HullPresence,
+pub(crate) struct MaskPipelineKey {
+    pub(crate) mesh_key:      MeshPipelineKey,
+    pub(crate) hull_presence: HullPresence,
 }
 
 impl SpecializedMeshPipeline for MeshMaskPipeline {

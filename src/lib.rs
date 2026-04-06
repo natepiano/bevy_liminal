@@ -19,11 +19,11 @@ mod view;
 
 use bevy::core_pipeline::core_3d::graph::Core3d;
 use bevy::core_pipeline::core_3d::graph::Node3d;
+use bevy::pbr;
 use bevy::pbr::DrawMesh;
 use bevy::pbr::SetMeshBindGroup;
 use bevy::pbr::SetMeshViewBindGroup;
 use bevy::pbr::SetMeshViewBindingArrayBindGroup;
-use bevy::pbr::extract_skins;
 use bevy::prelude::*;
 use bevy_render::Render;
 use bevy_render::RenderApp;
@@ -135,7 +135,7 @@ impl Plugin for LiminalPlugin {
                 ExtractSchedule,
                 (
                     extract::extract_outline_uniforms,
-                    view::update_views.after(extract_skins),
+                    view::update_views.after(pbr::extract_skins),
                 ),
             )
             .add_systems(

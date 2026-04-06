@@ -6,6 +6,7 @@ use bevy_render::camera::ExtractedCamera;
 use bevy_render::render_graph::NodeRunError;
 use bevy_render::render_graph::RenderGraphContext;
 use bevy_render::render_graph::ViewNode;
+use bevy_render::render_phase::BinnedRenderPhase;
 use bevy_render::render_phase::ViewBinnedRenderPhases;
 use bevy_render::render_resource::BindGroupEntries;
 use bevy_render::render_resource::LoadOp;
@@ -15,6 +16,7 @@ use bevy_render::render_resource::RenderPassColorAttachment;
 use bevy_render::render_resource::RenderPassDepthStencilAttachment;
 use bevy_render::render_resource::RenderPassDescriptor;
 use bevy_render::render_resource::StoreOp;
+use bevy_render::render_resource::TextureView;
 use bevy_render::render_resource::TextureViewDescriptor;
 use bevy_render::renderer::RenderContext;
 use bevy_render::texture::ColorAttachment;
@@ -31,7 +33,7 @@ use super::texture::FloodTextures;
 use super::types::ActiveOutlineModes;
 
 #[derive(Default)]
-pub(super) struct OutlineNode;
+pub(crate) struct OutlineNode;
 
 impl ViewNode for OutlineNode {
     type ViewQuery = (
@@ -120,12 +122,14 @@ impl ViewNode for OutlineNode {
             render_context,
             world,
             &jump_flood_pass,
-            &mut flood_textures,
-            &outline_depth_view,
-            global_depth,
-            view_target,
-            view_depth_texture,
-            *msaa,
+            JfaCompositeContext {
+                flood_textures: &mut flood_textures,
+                outline_depth_view: &outline_depth_view,
+                global_depth,
+                view_target,
+                view_depth_texture,
+                msaa: *msaa,
+            },
             flood_settings,
         );
 
@@ -136,9 +140,9 @@ impl ViewNode for OutlineNode {
 fn run_mask_init_pass(
     render_context: &mut RenderContext<'_>,
     flood_textures: &FloodTextures,
-    outline_depth_view: &bevy_render::render_resource::TextureView,
+    outline_depth_view: &TextureView,
     camera: &ExtractedCamera,
-    outline_phase: Option<&bevy_render::render_phase::BinnedRenderPhase<JfaOutlinePhase>>,
+    outline_phase: Option<&BinnedRenderPhase<JfaOutlinePhase>>,
     world: &World,
     view_entity: Entity,
 ) {
@@ -214,7 +218,7 @@ fn run_hull_pass(
     view_target: &ViewTarget,
     view_depth_texture: &ViewDepthTexture,
     camera: &ExtractedCamera,
-    hull_phase: &bevy_render::render_phase::BinnedRenderPhase<HullOutlinePhase>,
+    hull_phase: &BinnedRenderPhase<HullOutlinePhase>,
     world: &World,
     view_entity: Entity,
 ) {
@@ -242,18 +246,30 @@ fn run_hull_pass(
     }
 }
 
+struct JfaCompositeContext<'a> {
+    flood_textures:     &'a mut FloodTextures,
+    outline_depth_view: &'a TextureView,
+    global_depth:       &'a ColorAttachment,
+    view_target:        &'a ViewTarget,
+    view_depth_texture: &'a ViewDepthTexture,
+    msaa:               Msaa,
+}
+
 fn run_jfa_composite(
     render_context: &mut RenderContext<'_>,
     world: &World,
     jump_flood_pass: &JumpFloodPass<'_>,
-    flood_textures: &mut FloodTextures,
-    outline_depth_view: &bevy_render::render_resource::TextureView,
-    global_depth: &ColorAttachment,
-    view_target: &ViewTarget,
-    view_depth_texture: &ViewDepthTexture,
-    msaa: Msaa,
+    ctx: JfaCompositeContext<'_>,
     flood_settings: &FloodSettings,
 ) {
+    let JfaCompositeContext {
+        flood_textures,
+        outline_depth_view,
+        global_depth,
+        view_target,
+        view_depth_texture,
+        msaa,
+    } = ctx;
     let Some(active) = world.get_resource::<ActiveOutlineModes>() else {
         return;
     };

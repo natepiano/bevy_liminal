@@ -12,7 +12,7 @@ struct Instance {
     width: f32,
     priority: f32,
     overlap: f32,
-    outline_color: vec4<f32>,
+    color: vec4<f32>,
     owner_data: vec4<f32>,
 };
 
@@ -99,8 +99,8 @@ fn fragment(vertex: VertexOutput) -> FragmentOutput {
     var output: FragmentOutput;
     // RT0: seed_uv.xy, outline_width, depth
     output.flood_data = vec4<f32>(uv, outline.width, depth);
-    // RT1: outline_color.rgb, priority
-    output.appearance_data = vec4<f32>(outline.outline_color.rgb * outline.intensity, outline.priority);
+    // RT1: color.rgb, priority
+    output.appearance_data = vec4<f32>(outline.color.rgb * outline.intensity, outline.priority);
 #ifdef HULL_OUTLINES
     // RT2: owner ID (x) for per-mesh overlap separation in hull mode
     output.owner_data = outline.owner_data;

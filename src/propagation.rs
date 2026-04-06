@@ -6,7 +6,7 @@ use super::Outline;
 
 /// When `Outline` is added to an entity, propagate it to all descendant `Mesh3d` entities.
 /// Skips entities with `NoOutline`. Sets `group_source` for `Grouped` overlap mode.
-pub(super) fn propagate_outline_to_descendants(
+pub(crate) fn propagate_outline_to_descendants(
     added: On<Add, Outline>,
     outline_query: Query<&Outline>,
     mesh_query: Query<(), (With<Mesh3d>, Without<NoOutline>)>,
@@ -35,7 +35,7 @@ pub(super) fn propagate_outline_to_descendants(
 
 /// When a new child is added to the hierarchy, check if any ancestor has `Outline`
 /// and propagate it. Handles glTF scene loading where children spawn after the parent.
-pub(super) fn propagate_outline_on_child_added(
+pub(crate) fn propagate_outline_on_child_added(
     added: On<Add, ChildOf>,
     child_mesh_query: Query<(), (With<Mesh3d>, Without<NoOutline>)>,
     outline_query: Query<&Outline>,
@@ -65,7 +65,7 @@ pub(super) fn propagate_outline_on_child_added(
 
 /// When `Mesh3d` is added to an entity, check if any ancestor has `Outline` and propagate it.
 /// Handles glTF scene loading where `Mesh3d` may be added after `ChildOf`.
-pub(super) fn propagate_outline_on_mesh_added(
+pub(crate) fn propagate_outline_on_mesh_added(
     added: On<Add, Mesh3d>,
     no_outline_query: Query<(), With<NoOutline>>,
     outline_query: Query<&Outline>,
@@ -99,7 +99,7 @@ pub(super) fn propagate_outline_on_mesh_added(
 /// When a `SceneInstanceReady` fires on an entity with `Outline`, propagate to
 /// all descendant meshes. This handles the `SceneRoot` case where the scene instance
 /// entity may not have a `ChildOf` back to the entity with `Outline`.
-pub(super) fn propagate_outline_on_scene_ready(
+pub(crate) fn propagate_outline_on_scene_ready(
     ready: On<SceneInstanceReady>,
     outline_query: Query<&Outline>,
     mesh_query: Query<(), (With<Mesh3d>, Without<NoOutline>)>,
@@ -126,7 +126,7 @@ pub(super) fn propagate_outline_on_scene_ready(
 
 /// When `Outline` is removed from a source entity, remove it from all descendants.
 /// Only acts on source outlines (not propagated copies) to avoid cascading removals.
-pub(super) fn remove_outline_from_descendants(
+pub(crate) fn remove_outline_from_descendants(
     removed: On<Remove, Outline>,
     outline_query: Query<&Outline>,
     mesh_query: Query<(), With<Mesh3d>>,
@@ -150,7 +150,7 @@ pub(super) fn remove_outline_from_descendants(
 }
 
 /// When a source `Outline` changes, update all descendant copies.
-pub(super) fn sync_propagated_outlines(
+pub(crate) fn sync_propagated_outlines(
     changed_outlines: Query<(Entity, &Outline, &Children), Changed<Outline>>,
     mesh_query: Query<(), (With<Mesh3d>, Without<NoOutline>)>,
     children_query: Query<&Children>,

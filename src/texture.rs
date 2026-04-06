@@ -15,42 +15,42 @@ use super::types::ActiveOutlineModes;
 use super::types::OutlineCamera;
 
 #[derive(Clone, Component)]
-pub(super) struct FloodTextures {
-    pub(super) ping_pong:             PingPongState,
+pub(crate) struct FloodTextures {
+    pub(crate) ping_pong:             PingPongState,
     // Textures for storing input-output of flood passes
-    pub(super) input:                 CachedTexture,
-    pub(super) output:                CachedTexture,
+    pub(crate) input:                 CachedTexture,
+    pub(crate) output:                CachedTexture,
     /// A dedicated depth texture for mesh outlines to later compare against
     /// global depth
-    pub(super) outline_depth_texture: Texture,
+    pub(crate) outline_depth_texture: Texture,
     /// Stores outline color and mesh data
-    pub(super) appearance_texture:    CachedTexture,
+    pub(crate) appearance_texture:    CachedTexture,
     /// Stores per-mesh owner ID in x channel — only allocated when hull outlines are active
-    pub(super) owner_texture:         Option<CachedTexture>,
+    pub(crate) owner_texture:         Option<CachedTexture>,
 }
 
 #[derive(Clone, Copy)]
-pub(super) enum PingPongState {
+pub(crate) enum PingPongState {
     PrimaryInput,
     SecondaryInput,
 }
 
 impl FloodTextures {
-    pub(super) const fn input(&self) -> &CachedTexture {
+    pub(crate) const fn input(&self) -> &CachedTexture {
         match self.ping_pong {
             PingPongState::PrimaryInput => &self.input,
             PingPongState::SecondaryInput => &self.output,
         }
     }
 
-    pub(super) const fn output(&self) -> &CachedTexture {
+    pub(crate) const fn output(&self) -> &CachedTexture {
         match self.ping_pong {
             PingPongState::PrimaryInput => &self.output,
             PingPongState::SecondaryInput => &self.input,
         }
     }
 
-    pub(super) const fn swap_ping_pong(&mut self) {
+    pub(crate) const fn swap_ping_pong(&mut self) {
         self.ping_pong = match self.ping_pong {
             PingPongState::PrimaryInput => PingPongState::SecondaryInput,
             PingPongState::SecondaryInput => PingPongState::PrimaryInput,
@@ -58,7 +58,7 @@ impl FloodTextures {
     }
 }
 
-pub(super) fn prepare_flood_textures(
+pub(crate) fn prepare_flood_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,

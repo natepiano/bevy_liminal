@@ -13,6 +13,7 @@ use bevy_render::render_resource::BindGroupEntries;
 use bevy_render::render_resource::BindGroupEntry;
 use bevy_render::render_resource::GpuArrayBuffer;
 use bevy_render::render_resource::PipelineCache;
+use bevy_render::render_resource::TextureViewDescriptor;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::renderer::RenderQueue;
 use bytemuck::Zeroable;
@@ -26,7 +27,7 @@ use super::types::ActiveOutlineModes;
 use super::types::ExtractedOutlineUniforms;
 use super::uniforms::OutlineUniform;
 
-pub(super) struct SetOutlineBindGroup<const I: usize>();
+pub(crate) struct SetOutlineBindGroup<const I: usize>();
 
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOutlineBindGroup<I> {
     type Param = SRes<OutlineBindGroup>;
@@ -53,16 +54,16 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetOutlineBindGroup<I> {
 }
 
 #[derive(Resource)]
-pub(super) struct OutlineUniformBuffer(pub GpuArrayBuffer<OutlineUniform>);
+pub(crate) struct OutlineUniformBuffer(pub GpuArrayBuffer<OutlineUniform>);
 
 #[derive(Resource, Default)]
-pub(super) struct OutlineBindGroup(pub(super) Option<BindGroup>);
+pub(crate) struct OutlineBindGroup(pub(crate) Option<BindGroup>);
 
 #[derive(Resource)]
-pub(super) struct HullOutlineUniformBuffer(pub(super) GpuArrayBuffer<OutlineUniform>);
+pub(crate) struct HullOutlineUniformBuffer(pub(crate) GpuArrayBuffer<OutlineUniform>);
 
 #[derive(Resource, Default)]
-pub(super) struct HullOutlineBindGroup(pub(super) Option<BindGroup>);
+pub(crate) struct HullOutlineBindGroup(pub(crate) Option<BindGroup>);
 
 /// Pushes `OutlineUniform` data into the `GpuArrayBuffer` in the same order
 /// that `batch_and_prepare_binned_render_phase` pushes `MeshUniform` data,
@@ -72,7 +73,7 @@ pub(super) struct HullOutlineBindGroup(pub(super) Option<BindGroup>);
 /// the bins unconditionally. In the CPU path it calls `get_binned_batch_data`
 /// which skips entities whose mesh instance is missing. We must mirror that
 /// skip logic exactly so our indices stay aligned.
-pub(super) fn prepare_outline_buffer(
+pub(crate) fn prepare_outline_buffer(
     render_mesh_instances: Res<RenderMeshInstances>,
     extracted_outlines: Res<ExtractedOutlineUniforms>,
     outline_phases: Res<ViewBinnedRenderPhases<JfaOutlinePhase>>,
@@ -140,7 +141,7 @@ pub(super) fn prepare_outline_buffer(
 }
 
 /// Writes the outline buffer to the GPU and creates a single bind group.
-pub(super) fn prepare_outline_bind_group(
+pub(crate) fn prepare_outline_bind_group(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     pipeline_cache: Res<PipelineCache>,
@@ -165,7 +166,7 @@ pub(super) fn prepare_outline_bind_group(
     }
 }
 
-pub(super) struct SetHullOutlineBindGroup<const I: usize>();
+pub(crate) struct SetHullOutlineBindGroup<const I: usize>();
 
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetHullOutlineBindGroup<I> {
     type Param = SRes<HullOutlineBindGroup>;
@@ -191,10 +192,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetHullOutlineBindGroup<
     }
 }
 
-pub(super) struct SetHullDepthBindGroup<const I: usize>();
+pub(crate) struct SetHullDepthBindGroup<const I: usize>();
 
 #[derive(Component)]
-pub(super) struct HullDepthViewBindGroup(pub(super) BindGroup);
+pub(crate) struct HullDepthViewBindGroup(pub(crate) BindGroup);
 
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetHullDepthBindGroup<I> {
     type Param = ();
@@ -213,7 +214,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetHullDepthBindGroup<I>
     }
 }
 
-pub(super) fn prepare_hull_depth_view_bind_groups(
+pub(crate) fn prepare_hull_depth_view_bind_groups(
     active: Res<ActiveOutlineModes>,
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -232,7 +233,7 @@ pub(super) fn prepare_hull_depth_view_bind_groups(
 
         let outline_depth_view = flood_textures
             .outline_depth_texture
-            .create_view(&bevy_render::render_resource::TextureViewDescriptor::default());
+            .create_view(&TextureViewDescriptor::default());
         let owner_view = &owner_texture.default_view;
 
         let bind_group = render_device.create_bind_group(
@@ -250,7 +251,7 @@ pub(super) fn prepare_hull_depth_view_bind_groups(
     }
 }
 
-pub(super) fn prepare_hull_outline_buffer(
+pub(crate) fn prepare_hull_outline_buffer(
     active: Res<ActiveOutlineModes>,
     render_mesh_instances: Res<RenderMeshInstances>,
     extracted_outlines: Res<ExtractedOutlineUniforms>,
@@ -316,7 +317,7 @@ pub(super) fn prepare_hull_outline_buffer(
     }
 }
 
-pub(super) fn prepare_hull_outline_bind_group(
+pub(crate) fn prepare_hull_outline_bind_group(
     active: Res<ActiveOutlineModes>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,

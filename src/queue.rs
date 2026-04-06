@@ -33,7 +33,7 @@ use super::types::ExtractedOutlineUniforms;
 use super::types::OutlineCamera;
 use super::types::OutlineMethod;
 
-pub(super) fn queue_outline(
+pub(crate) fn queue_outline(
     extracted_outlines: Res<ExtractedOutlineUniforms>,
     draw_functions: Res<DrawFunctions<JfaOutlinePhase>>,
     mut outline_phases: ResMut<ViewBinnedRenderPhases<JfaOutlinePhase>>,
@@ -142,7 +142,7 @@ pub(super) fn queue_outline(
     }
 }
 
-pub(super) fn queue_hull_outline(
+pub(crate) fn queue_hull_outline(
     active: Res<ActiveOutlineModes>,
     extracted_outlines: Res<ExtractedOutlineUniforms>,
     draw_functions: Res<DrawFunctions<HullOutlinePhase>>,

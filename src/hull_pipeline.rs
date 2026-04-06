@@ -46,13 +46,13 @@ use super::shaders::HULL_SHADER_HANDLE;
 use super::uniforms::OutlineUniform;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(super) enum DynamicRange {
+pub(crate) enum DynamicRange {
     Sdr,
     Hdr,
 }
 
 impl DynamicRange {
-    pub(super) const fn from_hdr(is_hdr: bool) -> Self {
+    pub(crate) const fn from_hdr(is_hdr: bool) -> Self {
         if is_hdr { Self::Hdr } else { Self::Sdr }
     }
 
@@ -60,18 +60,18 @@ impl DynamicRange {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(super) struct HullPipelineKey {
-    pub(super) mesh_key:      MeshPipelineKey,
-    pub(super) dynamic_range: DynamicRange,
+pub(crate) struct HullPipelineKey {
+    pub(crate) mesh_key:      MeshPipelineKey,
+    pub(crate) dynamic_range: DynamicRange,
 }
 
 #[derive(Resource)]
-pub(super) struct HullPipeline {
-    pub(super) mesh_pipeline:                MeshPipeline,
-    pub(super) outline_bind_group_layout:    BindGroupLayoutDescriptor,
-    pub(super) depth_bind_group_layout:      BindGroupLayoutDescriptor,
-    pub(super) per_object_buffer_batch_size: Option<u32>,
-    pub(super) occlusion_sampler:            bevy_render::render_resource::Sampler,
+pub(crate) struct HullPipeline {
+    pub(crate) mesh_pipeline:                MeshPipeline,
+    pub(crate) outline_bind_group_layout:    BindGroupLayoutDescriptor,
+    pub(crate) depth_bind_group_layout:      BindGroupLayoutDescriptor,
+    pub(crate) per_object_buffer_batch_size: Option<u32>,
+    pub(crate) occlusion_sampler:            bevy_render::render_resource::Sampler,
 }
 
 impl FromWorld for HullPipeline {

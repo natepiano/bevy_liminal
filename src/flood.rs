@@ -40,16 +40,16 @@ use super::types::ExtractedOutlineUniforms;
 use super::types::OutlineCamera;
 
 #[derive(ShaderType)]
-pub(super) struct JumpFloodUniform {
-    pub(super) step_length: u32,
+pub(crate) struct JumpFloodUniform {
+    pub(crate) step_length: u32,
 }
 
 #[derive(Component, Default, Clone)]
-pub(super) struct FloodSettings {
-    pub(super) width: f32,
+pub(crate) struct FloodSettings {
+    pub(crate) width: f32,
 }
 
-pub(super) fn prepare_flood_settings(
+pub(crate) fn prepare_flood_settings(
     mut commands: Commands,
     extracted_outlines: Res<ExtractedOutlineUniforms>,
     cameras: Query<Entity, With<OutlineCamera>>,
@@ -64,12 +64,12 @@ pub(super) fn prepare_flood_settings(
 }
 
 #[derive(Resource)]
-pub(super) struct JumpFloodPipeline {
-    pub(super) layout:         BindGroupLayoutDescriptor,
-    pub(super) sampler:        Sampler,
-    pub(super) pipeline_id:    CachedRenderPipelineId,
-    pub(super) lookup_buffer:  DynamicUniformBuffer<JumpFloodUniform>,
-    pub(super) lookup_offsets: Vec<u32>,
+pub(crate) struct JumpFloodPipeline {
+    pub(crate) layout:         BindGroupLayoutDescriptor,
+    pub(crate) sampler:        Sampler,
+    pub(crate) pipeline_id:    CachedRenderPipelineId,
+    pub(crate) lookup_buffer:  DynamicUniformBuffer<JumpFloodUniform>,
+    pub(crate) lookup_offsets: Vec<u32>,
 }
 
 impl FromWorld for JumpFloodPipeline {
@@ -143,14 +143,14 @@ impl FromWorld for JumpFloodPipeline {
     }
 }
 
-pub(super) struct JumpFloodPass<'w> {
-    pub(super) pipeline: &'w JumpFloodPipeline,
+pub(crate) struct JumpFloodPass<'w> {
+    pub(crate) pipeline: &'w JumpFloodPipeline,
     render_pipeline:     &'w RenderPipeline,
     pipeline_cache:      &'w PipelineCache,
 }
 
 impl<'w> JumpFloodPass<'w> {
-    pub(super) fn new(world: &'w World) -> Option<Self> {
+    pub(crate) fn new(world: &'w World) -> Option<Self> {
         let pipeline = world.resource::<JumpFloodPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let render_pipeline = pipeline_cache.get_render_pipeline(pipeline.pipeline_id)?;
@@ -162,7 +162,7 @@ impl<'w> JumpFloodPass<'w> {
         })
     }
 
-    pub(super) fn execute(
+    pub(crate) fn execute(
         &self,
         render_context: &mut RenderContext<'_>,
         input: &CachedTexture,

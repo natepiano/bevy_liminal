@@ -8,13 +8,13 @@ use super::types::OutlineMethod;
 
 #[derive(Debug, Clone, ShaderType, Pod, Zeroable, Copy)]
 #[repr(C)]
-pub(super) struct OutlineUniform {
-    pub(super) intensity:     f32,
-    pub(super) width:         f32,
-    pub(super) priority:      f32,
-    pub(super) overlap:       f32,
-    pub(super) outline_color: Vec4,
-    pub(super) owner_data:    Vec4,
+pub(crate) struct OutlineUniform {
+    pub(crate) intensity:  f32,
+    pub(crate) width:      f32,
+    pub(crate) priority:   f32,
+    pub(crate) overlap:    f32,
+    pub(crate) color:      Vec4,
+    pub(crate) owner_data: Vec4,
 }
 
 impl From<&ExtractedOutline> for OutlineUniform {
@@ -24,12 +24,12 @@ impl From<&ExtractedOutline> for OutlineUniform {
             _ => 0.0,
         };
         Self {
-            intensity:     outline.intensity,
-            width:         outline.width,
-            priority:      outline.priority,
-            overlap:       outline.overlap,
-            outline_color: outline.color,
-            owner_data:    Vec4::new(outline.owner_id, shell_mode, 0.0, 0.0),
+            intensity:  outline.intensity,
+            width:      outline.width,
+            priority:   outline.priority,
+            overlap:    outline.overlap,
+            color:      outline.color,
+            owner_data: Vec4::new(outline.owner_id, shell_mode, 0.0, 0.0),
         }
     }
 }

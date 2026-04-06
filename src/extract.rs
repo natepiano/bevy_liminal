@@ -11,7 +11,7 @@ type OutlineEntityAndOutline = (Entity, &'static Outline);
 type AddedOrChangedOutlineFilter = (With<Mesh3d>, Or<(Added<Outline>, Changed<Outline>)>);
 type AddedOutlineFilter = (Added<Mesh3d>, With<Outline>);
 
-pub(super) fn extract_outline_uniforms(
+pub(crate) fn extract_outline_uniforms(
     mut extracted_outlines: ResMut<ExtractedOutlineUniforms>,
     added_or_changed_outlines: Extract<Query<OutlineEntityAndOutline, AddedOrChangedOutlineFilter>>,
     added_mesh_outlines: Extract<Query<OutlineEntityAndOutline, AddedOutlineFilter>>,
@@ -62,7 +62,7 @@ pub(super) fn extract_outline_uniforms(
     }
 }
 
-pub(super) fn update_active_outline_modes(
+pub(crate) fn update_active_outline_modes(
     extracted_outlines: Res<ExtractedOutlineUniforms>,
     mut active: ResMut<ActiveOutlineModes>,
 ) {

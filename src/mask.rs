@@ -13,11 +13,11 @@ use bevy_render::render_resource::CachedRenderPipelineId;
 use bevy_render::sync_world::MainEntity;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(super) struct OutlineBatchSetKey {
-    pub(super) pipeline:      CachedRenderPipelineId,
-    pub(super) draw_function: DrawFunctionId,
-    pub(super) vertex_slab:   SlabId,
-    pub(super) index_slab:    Option<SlabId>,
+pub(crate) struct OutlineBatchSetKey {
+    pub(crate) pipeline:      CachedRenderPipelineId,
+    pub(crate) draw_function: DrawFunctionId,
+    pub(crate) vertex_slab:   SlabId,
+    pub(crate) index_slab:    Option<SlabId>,
 }
 
 impl PhaseItemBatchSetKey for OutlineBatchSetKey {
@@ -31,17 +31,17 @@ impl PhaseItemBatchSetKey for OutlineBatchSetKey {
 /// single storage buffer and bind group still provide a very large performance win
 /// over per-entity buffers.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(super) struct OutlineBinKey {
-    pub(super) asset_id:    UntypedAssetId,
-    pub(super) main_entity: MainEntity,
+pub(crate) struct OutlineBinKey {
+    pub(crate) asset_id:    UntypedAssetId,
+    pub(crate) main_entity: MainEntity,
 }
 
-pub(super) struct JfaOutlinePhase {
-    pub(super) batch_set_key: OutlineBatchSetKey,
-    pub(super) entity:        Entity,
-    pub(super) main_entity:   MainEntity,
-    pub(super) batch_range:   Range<u32>,
-    pub(super) extra_index:   PhaseItemExtraIndex,
+pub(crate) struct JfaOutlinePhase {
+    pub(crate) batch_set_key: OutlineBatchSetKey,
+    pub(crate) entity:        Entity,
+    pub(crate) main_entity:   MainEntity,
+    pub(crate) batch_range:   Range<u32>,
+    pub(crate) extra_index:   PhaseItemExtraIndex,
 }
 
 impl PhaseItem for JfaOutlinePhase {
@@ -89,12 +89,12 @@ impl CachedRenderPipelinePhaseItem for JfaOutlinePhase {
     fn cached_pipeline(&self) -> CachedRenderPipelineId { self.batch_set_key.pipeline }
 }
 
-pub(super) struct HullOutlinePhase {
-    pub(super) batch_set_key: OutlineBatchSetKey,
-    pub(super) entity:        Entity,
-    pub(super) main_entity:   MainEntity,
-    pub(super) batch_range:   Range<u32>,
-    pub(super) extra_index:   PhaseItemExtraIndex,
+pub(crate) struct HullOutlinePhase {
+    pub(crate) batch_set_key: OutlineBatchSetKey,
+    pub(crate) entity:        Entity,
+    pub(crate) main_entity:   MainEntity,
+    pub(crate) batch_range:   Range<u32>,
+    pub(crate) extra_index:   PhaseItemExtraIndex,
 }
 
 impl PhaseItem for HullOutlinePhase {

@@ -23,13 +23,13 @@ use bevy_render::render_resource::binding_types::texture_depth_2d;
 use super::shaders::COMPOSE_SHADER_HANDLE;
 
 #[derive(Clone, Resource)]
-pub(super) struct ComposeOutputPipeline {
-    pub(super) layout:               BindGroupLayoutDescriptor,
-    pub(super) msaa_layout:          BindGroupLayoutDescriptor,
-    pub(super) pipeline_id:          CachedRenderPipelineId,
-    pub(super) hdr_pipeline_id:      CachedRenderPipelineId,
-    pub(super) msaa_pipeline_id:     CachedRenderPipelineId,
-    pub(super) msaa_hdr_pipeline_id: CachedRenderPipelineId,
+pub(crate) struct ComposeOutputPipeline {
+    pub(crate) layout:               BindGroupLayoutDescriptor,
+    pub(crate) msaa_layout:          BindGroupLayoutDescriptor,
+    pub(crate) pipeline_id:          CachedRenderPipelineId,
+    pub(crate) hdr_pipeline_id:      CachedRenderPipelineId,
+    pub(crate) msaa_pipeline_id:     CachedRenderPipelineId,
+    pub(crate) msaa_hdr_pipeline_id: CachedRenderPipelineId,
 }
 
 impl FromWorld for ComposeOutputPipeline {

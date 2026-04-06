@@ -16,7 +16,7 @@ struct Instance {
     width: f32,
     priority: f32,
     overlap: f32,
-    outline_color: vec4<f32>,
+    color: vec4<f32>,
     owner_data: vec4<f32>,
 };
 
@@ -131,8 +131,8 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.owner_id = outline.owner_data.x;
     out.overlap = outline.overlap;
     out.color = vec4<f32>(
-        outline.outline_color.rgb * outline.intensity,
-        outline.outline_color.a
+        outline.color.rgb * outline.intensity,
+        outline.color.a
     );
     return out;
 }
