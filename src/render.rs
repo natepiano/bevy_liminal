@@ -1,11 +1,16 @@
 use bevy::ecs::query::ROQueryItem;
 use bevy::ecs::system::SystemParamItem;
 use bevy::ecs::system::lifetimeless::SRes;
+use bevy::pbr::DrawMesh;
 use bevy::pbr::RenderMeshInstances;
+use bevy::pbr::SetMeshBindGroup;
+use bevy::pbr::SetMeshViewBindGroup;
+use bevy::pbr::SetMeshViewBindingArrayBindGroup;
 use bevy::prelude::*;
 use bevy_render::render_phase::PhaseItem;
 use bevy_render::render_phase::RenderCommand;
 use bevy_render::render_phase::RenderCommandResult;
+use bevy_render::render_phase::SetItemPipeline;
 use bevy_render::render_phase::TrackedRenderPass;
 use bevy_render::render_phase::ViewBinnedRenderPhases;
 use bevy_render::render_resource::BindGroup;
@@ -26,6 +31,25 @@ use super::texture::FloodTextures;
 use super::types::ActiveOutlineModes;
 use super::types::ExtractedOutlineUniforms;
 use super::uniforms::OutlineUniform;
+
+pub(crate) type DrawOutline = (
+    SetItemPipeline,
+    SetMeshViewBindGroup<0>,
+    SetMeshViewBindingArrayBindGroup<1>,
+    SetMeshBindGroup<2>,
+    SetOutlineBindGroup<3>,
+    DrawMesh,
+);
+
+pub(crate) type DrawHull = (
+    SetItemPipeline,
+    SetMeshViewBindGroup<0>,
+    SetMeshViewBindingArrayBindGroup<1>,
+    SetMeshBindGroup<2>,
+    SetHullOutlineBindGroup<3>,
+    SetHullDepthBindGroup<4>,
+    DrawMesh,
+);
 
 pub(crate) struct SetOutlineBindGroup<const I: usize>();
 

@@ -25,8 +25,11 @@ use bevy_render::view::ViewDepthTexture;
 use bevy_render::view::ViewTarget;
 
 use super::compose::ComposeOutputPipeline;
+use super::compose::ComposeVariant;
+use super::compose::SampleMode;
 use super::flood::FloodSettings;
 use super::flood::JumpFloodPass;
+use super::hull_pipeline::DynamicRange;
 use super::mask::HullOutlinePhase;
 use super::mask::JfaOutlinePhase;
 use super::texture::FloodTextures;
@@ -283,13 +286,10 @@ fn run_jfa_composite(
 
     let pipeline_cache = world.resource::<PipelineCache>();
 
-    let is_msaa = msaa.samples() > 1;
-    let pipeline_id = match (is_msaa, view_target.is_hdr()) {
-        (true, true) => compose_pipeline.msaa_hdr_pipeline_id,
-        (true, false) => compose_pipeline.msaa_pipeline_id,
-        (false, true) => compose_pipeline.hdr_pipeline_id,
-        (false, false) => compose_pipeline.pipeline_id,
-    };
+    let sample_mode = SampleMode::from_msaa(msaa);
+    let dynamic_range = DynamicRange::from_hdr(view_target.is_hdr());
+    let variant = ComposeVariant::new(sample_mode, dynamic_range);
+    let pipeline_id = compose_pipeline.pipeline_id(variant);
 
     let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id) else {
         return;
@@ -319,14 +319,9 @@ fn run_jfa_composite(
         );
     }
 
-    let layout = if is_msaa {
-        &compose_pipeline.msaa_layout
-    } else {
-        &compose_pipeline.layout
-    };
     let bind_group = render_context.render_device().create_bind_group(
         "compose_output_bind_group",
-        &pipeline_cache.get_bind_group_layout(layout),
+        &pipeline_cache.get_bind_group_layout(compose_pipeline.layout_for(variant)),
         &BindGroupEntries::sequential((
             post_process.source,
             &jump_flood_pass.pipeline.sampler,

@@ -1,6 +1,7 @@
 //! Bevy plugin for rendering mesh outlines using jump-flood and hull-extrusion methods.
 
 mod compose;
+mod constants;
 mod extract;
 mod flood;
 mod hull_pipeline;
@@ -20,10 +21,6 @@ mod view;
 use bevy::core_pipeline::core_3d::graph::Core3d;
 use bevy::core_pipeline::core_3d::graph::Node3d;
 use bevy::pbr;
-use bevy::pbr::DrawMesh;
-use bevy::pbr::SetMeshBindGroup;
-use bevy::pbr::SetMeshViewBindGroup;
-use bevy::pbr::SetMeshViewBindingArrayBindGroup;
 use bevy::prelude::*;
 use bevy_render::Render;
 use bevy_render::RenderApp;
@@ -35,7 +32,6 @@ use bevy_render::render_graph::ViewNodeRunner;
 use bevy_render::render_phase::AddRenderCommand;
 use bevy_render::render_phase::BinnedRenderPhasePlugin;
 use bevy_render::render_phase::DrawFunctions;
-use bevy_render::render_phase::SetItemPipeline;
 use bevy_render::render_phase::ViewBinnedRenderPhases;
 use bevy_render::render_resource::GpuArrayBuffer;
 use bevy_render::render_resource::SpecializedMeshPipelines;
@@ -51,13 +47,12 @@ pub use outline_builder::JumpFloodState;
 pub use outline_builder::OutlineBuilder;
 pub use outline_builder::ScreenHullState;
 pub use outline_builder::WorldHullState;
+use render::DrawHull;
+use render::DrawOutline;
 use render::HullOutlineBindGroup;
 use render::HullOutlineUniformBuffer;
 use render::OutlineBindGroup;
 use render::OutlineUniformBuffer;
-use render::SetHullDepthBindGroup;
-use render::SetHullOutlineBindGroup;
-use render::SetOutlineBindGroup;
 use types::ActiveOutlineModes;
 use types::ExtractedOutlineUniforms;
 pub use types::LineStyle;
@@ -68,25 +63,6 @@ pub use types::OutlineCamera;
 pub use types::OutlineMethod;
 use types::OutlineRenderGraphNode;
 pub use types::OverlapMode;
-
-type DrawOutline = (
-    SetItemPipeline,
-    SetMeshViewBindGroup<0>,
-    SetMeshViewBindingArrayBindGroup<1>,
-    SetMeshBindGroup<2>,
-    SetOutlineBindGroup<3>,
-    DrawMesh,
-);
-
-type DrawHull = (
-    SetItemPipeline,
-    SetMeshViewBindGroup<0>,
-    SetMeshViewBindingArrayBindGroup<1>,
-    SetMeshBindGroup<2>,
-    SetHullOutlineBindGroup<3>,
-    SetHullDepthBindGroup<4>,
-    DrawMesh,
-);
 
 /// Bevy plugin that registers outline rendering systems, pipelines, and render graph nodes.
 pub struct LiminalPlugin;
@@ -109,7 +85,7 @@ impl Plugin for LiminalPlugin {
 
         // Ensure the main pass depth texture has TEXTURE_BINDING so the compose
         // shader can sample it for correct occlusion of transmissive/transparent geometry.
-        app.add_systems(PostUpdate, types::configure_outline_camera_depth_texture);
+        app.add_observer(types::configure_outline_camera_depth_texture);
 
         app.add_plugins((
             BinnedRenderPhasePlugin::<JfaOutlinePhase, MeshMaskPipeline>::new(

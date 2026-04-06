@@ -7,6 +7,7 @@ use bevy_render::render_graph::RenderLabel;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::sync_world::MainEntityHashMap;
 
+use super::constants::OWNER_ID_OFFSET;
 use super::outline_builder::JumpFloodState;
 use super::outline_builder::OutlineBuilder;
 use super::outline_builder::ScreenHullState;
@@ -157,12 +158,12 @@ pub struct Outline {
     pub mode:                OutlineMethod,
     /// How overlapping outlines from different entities interact.
     pub overlap:             OverlapMode,
-    /// Line style (currently only `Solid`).
+    /// Line style (currently only [`Solid`](LineStyle::Solid)).
     pub style:               LineStyle,
     /// Whether this outline participates in extraction and rendering.
     pub activity:            OutlineActivity,
-    /// Set internally by propagation. When `Grouped`, all propagated children share this
-    /// entity's ID as the owner for overlap resolution. Not user-facing.
+    /// Set internally by propagation. When [`Grouped`](OverlapMode::Grouped), all propagated
+    /// children share this entity's ID as the owner for overlap resolution. Not user-facing.
     pub(crate) group_source: Option<Entity>,
 }
 
@@ -210,22 +211,23 @@ pub enum OutlineMethod {
 /// **Note:** `OverlapMode` only affects hull methods (`WorldHull`/`ScreenHull`). JFA always
 /// produces merged outlines regardless of this setting.
 ///
-/// - `Merged`: Overlapping outlined meshes share a single unified silhouette outline. No outline is
-///   drawn where two outlined surfaces overlap — they merge into one shape.
+/// - [`Merged`](OverlapMode::Merged): Overlapping outlined meshes share a single unified silhouette
+///   outline. No outline is drawn where two outlined surfaces overlap — they merge into one shape.
 ///
-/// - `Grouped`: All meshes within the same entity hierarchy (parent + children sharing a
-///   `group_owner`) merge into one outline, but that group is visually distinct from other groups.
-///   A cube with child spheres looks like one outlined unit, while a neighboring torus has its own
-///   separate outline.
+/// - [`Grouped`](OverlapMode::Grouped): All meshes within the same entity hierarchy (parent +
+///   children sharing a `group_source`) merge into one outline, but that group is visually distinct
+///   from other groups. A cube with child spheres looks like one outlined unit, while a neighboring
+///   torus has its own separate outline.
 ///
-/// - `PerMesh`: Every individual `Mesh3d` gets its own distinct outline boundary, even if it's a
-///   child of a larger entity. Child spheres inside a cube each show their own outline.
+/// - [`PerMesh`](OverlapMode::PerMesh): Every individual `Mesh3d` gets its own distinct outline
+///   boundary, even if it's a child of a larger entity. Child spheres inside a cube each show their
+///   own outline.
 #[derive(Debug, Clone, Copy, Reflect, PartialEq, Eq, Default)]
 pub enum OverlapMode {
     /// Overlapping outlines merge into one shared silhouette.
     #[default]
     Merged,
-    /// Meshes in the same group (via `group_owner`) merge, but are distinct from other groups.
+    /// Meshes in the same group (via `group_source`) merge, but are distinct from other groups.
     Grouped,
     /// Every individual mesh gets its own outline boundary.
     PerMesh,
@@ -297,7 +299,7 @@ impl ExtractedOutline {
             width:     outline.width,
             priority:  0.0,
             overlap:   outline.overlap.as_shader_factor(),
-            owner_id:  owner_entity.index().index().to_f32() + 1.0,
+            owner_id:  owner_entity.index().index().to_f32() + OWNER_ID_OFFSET,
             color:     linear_color.to_vec4(),
             mode:      outline.mode,
         }
@@ -314,14 +316,17 @@ pub(crate) enum OutlineRenderGraphNode {
 /// Ensures the main pass depth texture has `TEXTURE_BINDING` so the compose shader
 /// can sample it for correct occlusion of transmissive/transparent geometry.
 ///
+/// Fires once when `OutlineCamera` is added, rather than polling every frame.
+///
 /// Needs to run in the main app because `Camera3d::depth_texture_usages` controls
 /// how the GPU texture is allocated — by the time extraction runs, it's too late.
 ///
 /// See `bevy_pbr::atmosphere::configure_camera_depth_usages` for the same pattern in Bevy.
 pub(crate) fn configure_outline_camera_depth_texture(
-    mut cameras: Query<&mut Camera3d, With<OutlineCamera>>,
+    added: On<Add, OutlineCamera>,
+    mut cameras: Query<&mut Camera3d>,
 ) {
-    for mut camera_3d in &mut cameras {
+    if let Ok(mut camera_3d) = cameras.get_mut(added.entity) {
         let mut usages = TextureUsages::from(camera_3d.depth_texture_usages);
         usages |= TextureUsages::TEXTURE_BINDING;
         camera_3d.depth_texture_usages = usages.into();

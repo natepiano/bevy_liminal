@@ -26,7 +26,7 @@ impl PhaseItemBatchSetKey for OutlineBatchSetKey {
 
 /// Including `main_entity` makes each entity its own unique bin. Without it,
 /// GPU indirect drawing can reorder entities within a bin, causing
-/// `instance_index` to map to the wrong outline uniform and shifting colors
+/// `instance_index` to map to the wrong `OutlineUniform` and shifting colors
 /// between entities. This approach sacrifices multi-entity draw call batching but the
 /// single storage buffer and bind group still provide a very large performance win
 /// over per-entity buffers.
