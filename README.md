@@ -81,7 +81,7 @@ Hull methods automatically generate smoothed outline normals when an `Outline` c
 
 ## HDR Glow
 
-Set intensity > 1.0 to produce HDR glow when used with Bevy's bloom:
+Set intensity > 1.0 to produce HDR glow when used with Bevy's bloom. Requires an HDR camera with bloom enabled -- without HDR, values above 1.0 are clamped. In multi-camera setups, HDR must be consistent across all cameras or rendering silently breaks ([bevy#15467](https://github.com/bevyengine/bevy/issues/15467)).
 
 ```rust
 Outline::jump_flood(3.0)
