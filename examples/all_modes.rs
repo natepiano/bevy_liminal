@@ -8,9 +8,10 @@ use bevy::prelude::*;
 use bevy_brp_extras::BrpExtrasPlugin;
 use bevy_brp_extras::PortDisplay;
 use bevy_kana::ToF32;
+use bevy_lagrange::InputControl;
 use bevy_lagrange::LagrangePlugin;
 use bevy_lagrange::OrbitCam;
-use bevy_lagrange::TrackpadBehavior;
+use bevy_lagrange::TrackpadInput;
 use bevy_lagrange::ZoomToFit;
 use bevy_liminal::LiminalPlugin;
 use bevy_liminal::Outline;
@@ -228,11 +229,10 @@ fn spawn_environment(
             button_orbit: MouseButton::Middle,
             button_pan: MouseButton::Middle,
             modifier_pan: Some(KeyCode::ShiftLeft),
-            trackpad_behavior: TrackpadBehavior::BlenderLike {
-                modifier_pan:  Some(KeyCode::ShiftLeft),
-                modifier_zoom: Some(KeyCode::ControlLeft),
-            },
-            trackpad_pinch_to_zoom_enabled: true,
+            input_control: Some(InputControl {
+                trackpad: Some(TrackpadInput::blender_default()),
+                ..default()
+            }),
             ..default()
         },
         Transform::from_xyz(0.0, 12.0, 18.0).looking_at(Vec3::ZERO, Vec3::Y),

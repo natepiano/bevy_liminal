@@ -19,6 +19,10 @@ use bevy_kana::ToF32;
 use bevy_kana::ToF64;
 use bevy_kana::ToU32;
 use bevy_kana::ToUsize;
+use bevy_lagrange::InputControl;
+use bevy_lagrange::LagrangePlugin;
+use bevy_lagrange::OrbitCam;
+use bevy_lagrange::TrackpadInput;
 use bevy_liminal::LiminalPlugin;
 use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
@@ -41,6 +45,7 @@ fn main() {
         }))
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(BrpExtrasPlugin::default().port_in_title(PortDisplay::NonDefault))
+        .add_plugins(LagrangePlugin)
         .add_plugins(LiminalPlugin)
         .add_plugins(WindowManagerPlugin)
         .insert_resource(WinitSettings::continuous())
@@ -298,6 +303,16 @@ fn setup_benchmark(
     commands.spawn((
         Camera3d::default(),
         Transform::from_translation(CAMERA_POSITION).looking_at(CAMERA_LOOK_AT, Vec3::Y),
+        OrbitCam {
+            button_orbit: MouseButton::Middle,
+            button_pan: MouseButton::Middle,
+            modifier_pan: Some(KeyCode::ShiftLeft),
+            input_control: Some(InputControl {
+                trackpad: Some(TrackpadInput::blender_default()),
+                ..default()
+            }),
+            ..default()
+        },
         OutlineCamera,
         AmbientLight {
             brightness: AMBIENT_LIGHT_BRIGHTNESS,

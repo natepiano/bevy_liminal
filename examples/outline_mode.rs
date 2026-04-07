@@ -10,9 +10,10 @@ use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy_brp_extras::BrpExtrasPlugin;
 use bevy_brp_extras::PortDisplay;
+use bevy_lagrange::InputControl;
 use bevy_lagrange::LagrangePlugin;
 use bevy_lagrange::OrbitCam;
-use bevy_lagrange::TrackpadBehavior;
+use bevy_lagrange::TrackpadInput;
 use bevy_liminal::LiminalPlugin;
 use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
@@ -117,11 +118,10 @@ fn setup(
             button_orbit: MouseButton::Middle,
             button_pan: MouseButton::Middle,
             modifier_pan: Some(KeyCode::ShiftLeft),
-            trackpad_behavior: TrackpadBehavior::BlenderLike {
-                modifier_pan:  Some(KeyCode::ShiftLeft),
-                modifier_zoom: Some(KeyCode::ControlLeft),
-            },
-            trackpad_pinch_to_zoom_enabled: true,
+            input_control: Some(InputControl {
+                trackpad: Some(TrackpadInput::blender_default()),
+                ..default()
+            }),
             orbit_smoothness: 0.0,
             pan_smoothness: 0.0,
             zoom_smoothness: 0.0,

@@ -9,6 +9,10 @@ use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 use bevy::render::camera::MipBias;
 use bevy::render::camera::TemporalJitter;
+use bevy_lagrange::InputControl;
+use bevy_lagrange::LagrangePlugin;
+use bevy_lagrange::OrbitCam;
+use bevy_lagrange::TrackpadInput;
 use bevy_liminal::LiminalPlugin;
 use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
@@ -17,6 +21,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
+            LagrangePlugin,
             LiminalPlugin,
         ))
         .add_systems(Startup, (setup, setup_ui))
@@ -57,6 +62,16 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(3.0, 2., 3.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        OrbitCam {
+            button_orbit: MouseButton::Middle,
+            button_pan: MouseButton::Middle,
+            modifier_pan: Some(KeyCode::ShiftLeft),
+            input_control: Some(InputControl {
+                trackpad: Some(TrackpadInput::blender_default()),
+                ..default()
+            }),
+            ..default()
+        },
         OutlineCamera,
     ));
 
