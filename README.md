@@ -7,6 +7,10 @@
 
 A Bevy plugin for rendering 3D mesh outlines using jump-flood and hull-extrusion methods.
 
+> **Work in progress.** This crate is in active development (v0.0.1) and not
+> subject to semver stability guarantees. APIs will change without notice
+> between commits. Do not depend on this in production code yet.
+
 ## Usage
 
 ```rust
