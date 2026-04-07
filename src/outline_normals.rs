@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use bevy::mesh::Indices;
 use bevy::mesh::MeshVertexAttribute;
 use bevy::mesh::PrimitiveTopology;
 use bevy::mesh::VertexAttributeValues;
@@ -7,6 +8,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::VertexFormat;
 
 use super::Outline;
+use super::constants::DEGENERATE_EDGE_THRESHOLD;
 
 /// Custom vertex attribute storing pre-computed smoothed outline normals.
 ///
@@ -39,16 +41,14 @@ pub fn generate_outline_normals(mesh: &mut Mesh) {
         return;
     };
 
-    let index_count = mesh
-        .indices()
-        .map_or(positions.len(), bevy::mesh::Indices::len);
+    let index_count = mesh.indices().map_or(positions.len(), Indices::len);
     if !index_count.is_multiple_of(3) {
         return;
     }
 
     // Accumulate angle-weighted face normals per unique position.
     // Key by f32::to_bits() for exact position matching (no floating-point tolerance).
-    let mut accum: HashMap<[u32; 3], Vec3> = HashMap::new();
+    let mut accumulated_normals: HashMap<[u32; 3], Vec3> = HashMap::new();
 
     let triangle_count = index_count / 3;
     for tri in 0..triangle_count {
@@ -63,13 +63,31 @@ pub fn generate_outline_normals(mesh: &mut Mesh) {
         let face_normal = e01.cross(e02).normalize_or_zero();
 
         // Accumulate for each vertex, weighted by the angle at that vertex.
-        accumulate_weighted_normal(&mut accum, positions[i0], face_normal, e01, e02);
-        accumulate_weighted_normal(&mut accum, positions[i1], face_normal, p2 - p1, p0 - p1);
-        accumulate_weighted_normal(&mut accum, positions[i2], face_normal, p0 - p2, p1 - p2);
+        accumulate_weighted_normal(
+            &mut accumulated_normals,
+            positions[i0],
+            face_normal,
+            e01,
+            e02,
+        );
+        accumulate_weighted_normal(
+            &mut accumulated_normals,
+            positions[i1],
+            face_normal,
+            p2 - p1,
+            p0 - p1,
+        );
+        accumulate_weighted_normal(
+            &mut accumulated_normals,
+            positions[i2],
+            face_normal,
+            p0 - p2,
+            p1 - p2,
+        );
     }
 
     // Normalize all accumulated normals.
-    for normal in accum.values_mut() {
+    for normal in accumulated_normals.values_mut() {
         *normal = normal.normalize_or_zero();
     }
 
@@ -78,7 +96,11 @@ pub fn generate_outline_normals(mesh: &mut Mesh) {
         .iter()
         .map(|pos| {
             let key = position_key(*pos);
-            accum.get(&key).copied().unwrap_or(Vec3::Y).into()
+            accumulated_normals
+                .get(&key)
+                .copied()
+                .unwrap_or(Vec3::Y)
+                .into()
         })
         .collect();
 
@@ -132,7 +154,7 @@ const fn position_key(pos: [f32; 3]) -> [u32; 3] {
 }
 
 fn accumulate_weighted_normal(
-    accum: &mut HashMap<[u32; 3], Vec3>,
+    accumulated_normals: &mut HashMap<[u32; 3], Vec3>,
     pos: [f32; 3],
     face_normal: Vec3,
     edge_a: Vec3,
@@ -140,13 +162,15 @@ fn accumulate_weighted_normal(
 ) {
     let len_a = edge_a.length();
     let len_b = edge_b.length();
-    if len_a < 1e-10 || len_b < 1e-10 {
+    if len_a < DEGENERATE_EDGE_THRESHOLD || len_b < DEGENERATE_EDGE_THRESHOLD {
         return;
     }
     let cos_angle = (edge_a / len_a).dot(edge_b / len_b).clamp(-1.0, 1.0);
     let angle = cos_angle.acos();
 
-    let entry = accum.entry(position_key(pos)).or_insert(Vec3::ZERO);
+    let entry = accumulated_normals
+        .entry(position_key(pos))
+        .or_insert(Vec3::ZERO);
     *entry += face_normal * angle;
 }
 

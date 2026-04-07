@@ -21,6 +21,7 @@ use super::DrawOutline;
 use super::hull_pipeline::DynamicRange;
 use super::hull_pipeline::HullPipeline;
 use super::hull_pipeline::HullPipelineKey;
+use super::hull_pipeline::OutlineNormalPresence;
 use super::mask::HullOutlinePhase;
 use super::mask::JfaOutlinePhase;
 use super::mask::OutlineBatchSetKey;
@@ -219,10 +220,15 @@ pub(crate) fn queue_hull_outline(
                 HullPipelineKey {
                     mesh_key,
                     dynamic_range: DynamicRange::from_hdr(view.hdr),
-                    has_outline_normals: mesh
+                    outline_normal_presence: if mesh
                         .layout
                         .0
-                        .contains(super::outline_normals::ATTRIBUTE_OUTLINE_NORMAL),
+                        .contains(super::outline_normals::ATTRIBUTE_OUTLINE_NORMAL)
+                    {
+                        OutlineNormalPresence::Present
+                    } else {
+                        OutlineNormalPresence::Absent
+                    },
                 },
                 &mesh.layout,
             ) else {

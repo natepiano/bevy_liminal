@@ -64,10 +64,16 @@ impl DynamicRange {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum OutlineNormalPresence {
+    Present,
+    Absent,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct HullPipelineKey {
-    pub(crate) mesh_key:            MeshPipelineKey,
-    pub(crate) dynamic_range:       DynamicRange,
-    pub(crate) has_outline_normals: bool,
+    pub(crate) mesh_key:                MeshPipelineKey,
+    pub(crate) dynamic_range:           DynamicRange,
+    pub(crate) outline_normal_presence: OutlineNormalPresence,
 }
 
 #[derive(Resource)]
@@ -136,7 +142,7 @@ impl SpecializedMeshPipeline for HullPipeline {
             ));
         }
 
-        if key.has_outline_normals {
+        if matches!(key.outline_normal_presence, OutlineNormalPresence::Present) {
             shader_defs.push(ShaderDefVal::Bool("HAS_OUTLINE_NORMALS".into(), true));
 
             if let Some(index) = layout

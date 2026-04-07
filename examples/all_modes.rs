@@ -29,6 +29,11 @@ const ZOOM_MARGIN_MESH: f32 = 0.15;
 const ZOOM_MARGIN_SCENE: f32 = 0.08;
 const ZOOM_DURATION_MS: u64 = 1000;
 
+struct MeshAndMaterial {
+    mesh:     Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+}
+
 #[derive(Resource)]
 struct SceneBounds(Entity);
 
@@ -53,49 +58,43 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let cube_mesh = meshes.add(Cuboid::default());
-    let cube_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.8, 0.7, 0.6),
-        ..default()
-    });
-    let sphere_mesh = meshes.add(Sphere::new(0.25).mesh().uv(32, 16));
-    let sphere_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.65, 0.55, 0.75),
-        ..default()
-    });
-    let torus_mesh = meshes.add(
-        Torus::new(0.25, 0.75)
-            .mesh()
-            .minor_resolution(64)
-            .major_resolution(64),
-    );
-    let torus_material = materials.add(StandardMaterial {
-        base_color: Color::srgb(0.2, 0.7, 0.3),
-        ..default()
-    });
+    let cube = MeshAndMaterial {
+        mesh:     meshes.add(Cuboid::default()),
+        material: materials.add(StandardMaterial {
+            base_color: Color::srgb(0.8, 0.7, 0.6),
+            ..default()
+        }),
+    };
+    let sphere = MeshAndMaterial {
+        mesh:     meshes.add(Sphere::new(0.25).mesh().uv(32, 16)),
+        material: materials.add(StandardMaterial {
+            base_color: Color::srgb(0.65, 0.55, 0.75),
+            ..default()
+        }),
+    };
+    let torus = MeshAndMaterial {
+        mesh:     meshes.add(
+            Torus::new(0.25, 0.75)
+                .mesh()
+                .minor_resolution(64)
+                .major_resolution(64),
+        ),
+        material: materials.add(StandardMaterial {
+            base_color: Color::srgb(0.2, 0.7, 0.3),
+            ..default()
+        }),
+    };
 
-    spawn_outline_grid(
-        &mut commands,
-        &cube_mesh,
-        &cube_material,
-        &sphere_mesh,
-        &sphere_material,
-        &torus_mesh,
-        &torus_material,
-        &asset_server,
-    );
+    spawn_outline_grid(&mut commands, &cube, &sphere, &torus, &asset_server);
     spawn_environment(&mut commands, &mut meshes, &mut materials);
     spawn_ui(&mut commands);
 }
 
 fn spawn_outline_grid(
     commands: &mut Commands,
-    cube_mesh: &Handle<Mesh>,
-    cube_material: &Handle<StandardMaterial>,
-    sphere_mesh: &Handle<Mesh>,
-    sphere_material: &Handle<StandardMaterial>,
-    torus_mesh: &Handle<Mesh>,
-    torus_material: &Handle<StandardMaterial>,
+    cube: &MeshAndMaterial,
+    sphere: &MeshAndMaterial,
+    torus: &MeshAndMaterial,
     asset_server: &AssetServer,
 ) {
     let modes: &[(OutlineMethod, &str)] = &[
@@ -131,8 +130,8 @@ fn spawn_outline_grid(
         commands
             .spawn((
                 Name::new(format!("Torus ({label})")),
-                Mesh3d(torus_mesh.clone()),
-                MeshMaterial3d(torus_material.clone()),
+                Mesh3d(torus.mesh.clone()),
+                MeshMaterial3d(torus.material.clone()),
                 Transform {
                     translation: Vec3::new(x, 1.0, -GRID_SPACING),
                     rotation,
@@ -145,8 +144,8 @@ fn spawn_outline_grid(
         commands
             .spawn((
                 Name::new(format!("Cube ({label})")),
-                Mesh3d(cube_mesh.clone()),
-                MeshMaterial3d(cube_material.clone()),
+                Mesh3d(cube.mesh.clone()),
+                MeshMaterial3d(cube.material.clone()),
                 Transform {
                     translation: Vec3::new(x, 1.0, 0.0),
                     rotation,
@@ -158,14 +157,14 @@ fn spawn_outline_grid(
             .with_children(|parent| {
                 parent.spawn((
                     Name::new("Sphere +X"),
-                    Mesh3d(sphere_mesh.clone()),
-                    MeshMaterial3d(sphere_material.clone()),
+                    Mesh3d(sphere.mesh.clone()),
+                    MeshMaterial3d(sphere.material.clone()),
                     Transform::from_xyz(0.5, 0.0, 0.0),
                 ));
                 parent.spawn((
                     Name::new("Sphere -X"),
-                    Mesh3d(sphere_mesh.clone()),
-                    MeshMaterial3d(sphere_material.clone()),
+                    Mesh3d(sphere.mesh.clone()),
+                    MeshMaterial3d(sphere.material.clone()),
                     Transform::from_xyz(-0.5, 0.0, 0.0),
                 ));
             });
