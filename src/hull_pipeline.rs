@@ -1,5 +1,6 @@
 use bevy::ecs::system::SystemParamItem;
 use bevy::ecs::system::lifetimeless::SRes;
+use bevy::mesh::MeshVertexAttributeId;
 use bevy::mesh::MeshVertexBufferLayoutRef;
 use bevy::pbr::MeshInputUniform;
 use bevy::pbr::MeshPipeline;
@@ -34,6 +35,8 @@ use bevy_render::render_resource::SpecializedMeshPipeline;
 use bevy_render::render_resource::SpecializedMeshPipelineError;
 use bevy_render::render_resource::TextureFormat;
 use bevy_render::render_resource::TextureSampleType;
+use bevy_render::render_resource::VertexAttribute;
+use bevy_render::render_resource::VertexFormat;
 use bevy_render::render_resource::binding_types::sampler;
 use bevy_render::render_resource::binding_types::texture_2d;
 use bevy_render::render_resource::binding_types::texture_depth_2d;
@@ -42,6 +45,7 @@ use bevy_render::sync_world::MainEntity;
 use bevy_render::view::ViewTarget;
 use nonmax::NonMaxU32;
 
+use super::outline_normals::ATTRIBUTE_OUTLINE_NORMAL;
 use super::shaders::HULL_SHADER_HANDLE;
 use super::uniforms::OutlineUniform;
 
@@ -61,8 +65,9 @@ impl DynamicRange {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct HullPipelineKey {
-    pub(crate) mesh_key:      MeshPipelineKey,
-    pub(crate) dynamic_range: DynamicRange,
+    pub(crate) mesh_key:            MeshPipelineKey,
+    pub(crate) dynamic_range:       DynamicRange,
+    pub(crate) has_outline_normals: bool,
 }
 
 #[derive(Resource)]
@@ -129,6 +134,27 @@ impl SpecializedMeshPipeline for HullPipeline {
                 "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
                 per_object_buffer_batch_size,
             ));
+        }
+
+        if key.has_outline_normals {
+            shader_defs.push(ShaderDefVal::Bool("HAS_OUTLINE_NORMALS".into(), true));
+
+            if let Some(index) = layout
+                .0
+                .attribute_ids()
+                .iter()
+                .position(|id| *id == MeshVertexAttributeId::from(ATTRIBUTE_OUTLINE_NORMAL))
+            {
+                let mesh_layout = layout.0.layout();
+                let attr = &mesh_layout.attributes[index];
+                descriptor.vertex.buffers[0]
+                    .attributes
+                    .push(VertexAttribute {
+                        format:          VertexFormat::Float32x3,
+                        offset:          attr.offset,
+                        shader_location: 8,
+                    });
+            }
         }
 
         descriptor.vertex.shader_defs.extend(shader_defs.clone());

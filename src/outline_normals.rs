@@ -1,0 +1,167 @@
+use std::collections::HashMap;
+
+use bevy::mesh::MeshVertexAttribute;
+use bevy::mesh::PrimitiveTopology;
+use bevy::mesh::VertexAttributeValues;
+use bevy::prelude::*;
+use bevy::render::render_resource::VertexFormat;
+
+use super::Outline;
+
+/// Custom vertex attribute storing pre-computed smoothed outline normals.
+///
+/// These normals are averaged across all faces sharing a vertex position,
+/// weighted by the angle at each face, producing smooth silhouette extrusion
+/// even on hard-edged meshes.
+pub const ATTRIBUTE_OUTLINE_NORMAL: MeshVertexAttribute =
+    MeshVertexAttribute::new("Outline_Normal", 988_540_917, VertexFormat::Float32x3);
+
+/// Computes angle-weighted smoothed outline normals and stores them as
+/// [`ATTRIBUTE_OUTLINE_NORMAL`] on the mesh.
+///
+/// Vertices at the same position (but with different normals or UVs due to
+/// hard edges or UV seams) receive the same outline normal, producing a
+/// continuous silhouette.
+///
+/// Only operates on `TriangleList` meshes with positions. Returns silently
+/// for other topologies.
+///
+/// Inspired by `bevy_mod_outline`'s `generate_outline_normals()`.
+pub fn generate_outline_normals(mesh: &mut Mesh) {
+    if mesh.primitive_topology() != PrimitiveTopology::TriangleList {
+        return;
+    }
+
+    let Some(positions) = mesh
+        .attribute(Mesh::ATTRIBUTE_POSITION)
+        .and_then(VertexAttributeValues::as_float3)
+    else {
+        return;
+    };
+
+    let index_count = mesh
+        .indices()
+        .map_or(positions.len(), bevy::mesh::Indices::len);
+    if !index_count.is_multiple_of(3) {
+        return;
+    }
+
+    // Accumulate angle-weighted face normals per unique position.
+    // Key by f32::to_bits() for exact position matching (no floating-point tolerance).
+    let mut accum: HashMap<[u32; 3], Vec3> = HashMap::new();
+
+    let triangle_count = index_count / 3;
+    for tri in 0..triangle_count {
+        let (i0, i1, i2) = triangle_indices(mesh, positions.len(), tri);
+
+        let p0 = Vec3::from(positions[i0]);
+        let p1 = Vec3::from(positions[i1]);
+        let p2 = Vec3::from(positions[i2]);
+
+        let e01 = p1 - p0;
+        let e02 = p2 - p0;
+        let face_normal = e01.cross(e02).normalize_or_zero();
+
+        // Accumulate for each vertex, weighted by the angle at that vertex.
+        accumulate_weighted_normal(&mut accum, positions[i0], face_normal, e01, e02);
+        accumulate_weighted_normal(&mut accum, positions[i1], face_normal, p2 - p1, p0 - p1);
+        accumulate_weighted_normal(&mut accum, positions[i2], face_normal, p0 - p2, p1 - p2);
+    }
+
+    // Normalize all accumulated normals.
+    for normal in accum.values_mut() {
+        *normal = normal.normalize_or_zero();
+    }
+
+    // Build per-vertex outline normals by looking up each vertex's position.
+    let normals: Vec<[f32; 3]> = positions
+        .iter()
+        .map(|pos| {
+            let key = position_key(*pos);
+            accum.get(&key).copied().unwrap_or(Vec3::Y).into()
+        })
+        .collect();
+
+    mesh.insert_attribute(ATTRIBUTE_OUTLINE_NORMAL, normals);
+}
+
+/// When `Outline` is added to an entity that has `Mesh3d`, generate outline
+/// normals on the mesh asset if not already present.
+pub(crate) fn generate_normals_on_outline_added(
+    added: On<Add, Outline>,
+    mesh_query: Query<&Mesh3d>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
+    let entity = added.entity;
+    let Ok(mesh3d) = mesh_query.get(entity) else {
+        return;
+    };
+    generate_normals_for_handle(mesh3d.id(), &mut meshes);
+}
+
+/// When `Mesh3d` is added to an entity that already has `Outline`, generate
+/// outline normals on the mesh asset if not already present.
+pub(crate) fn generate_normals_on_mesh_added(
+    added: On<Add, Mesh3d>,
+    mesh_query: Query<&Mesh3d>,
+    outline_query: Query<(), With<Outline>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
+    let entity = added.entity;
+    if !outline_query.contains(entity) {
+        return;
+    }
+    let Ok(mesh3d) = mesh_query.get(entity) else {
+        return;
+    };
+    generate_normals_for_handle(mesh3d.id(), &mut meshes);
+}
+
+fn generate_normals_for_handle(id: AssetId<Mesh>, meshes: &mut Assets<Mesh>) {
+    let Some(mesh) = meshes.get_mut(id) else {
+        return;
+    };
+    if mesh.attribute(ATTRIBUTE_OUTLINE_NORMAL).is_some() {
+        return;
+    }
+    generate_outline_normals(mesh);
+}
+
+const fn position_key(pos: [f32; 3]) -> [u32; 3] {
+    [pos[0].to_bits(), pos[1].to_bits(), pos[2].to_bits()]
+}
+
+fn accumulate_weighted_normal(
+    accum: &mut HashMap<[u32; 3], Vec3>,
+    pos: [f32; 3],
+    face_normal: Vec3,
+    edge_a: Vec3,
+    edge_b: Vec3,
+) {
+    let len_a = edge_a.length();
+    let len_b = edge_b.length();
+    if len_a < 1e-10 || len_b < 1e-10 {
+        return;
+    }
+    let cos_angle = (edge_a / len_a).dot(edge_b / len_b).clamp(-1.0, 1.0);
+    let angle = cos_angle.acos();
+
+    let entry = accum.entry(position_key(pos)).or_insert(Vec3::ZERO);
+    *entry += face_normal * angle;
+}
+
+fn triangle_indices(mesh: &Mesh, vertex_count: usize, tri: usize) -> (usize, usize, usize) {
+    let base = tri * 3;
+    if let Some(indices) = mesh.indices() {
+        let mut iter = indices.iter().skip(base);
+        let i0 = iter.next().unwrap_or(0);
+        let i1 = iter.next().unwrap_or(0);
+        let i2 = iter.next().unwrap_or(0);
+        (i0, i1, i2)
+    } else {
+        let i0 = base.min(vertex_count.saturating_sub(1));
+        let i1 = (base + 1).min(vertex_count.saturating_sub(1));
+        let i2 = (base + 2).min(vertex_count.saturating_sub(1));
+        (i0, i1, i2)
+    }
+}

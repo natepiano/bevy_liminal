@@ -219,6 +219,10 @@ pub(crate) fn queue_hull_outline(
                 HullPipelineKey {
                     mesh_key,
                     dynamic_range: DynamicRange::from_hdr(view.hdr),
+                    has_outline_normals: mesh
+                        .layout
+                        .0
+                        .contains(super::outline_normals::ATTRIBUTE_OUTLINE_NORMAL),
                 },
                 &mesh.layout,
             ) else {

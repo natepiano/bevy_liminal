@@ -3,10 +3,41 @@
     mesh_functions,
     skinning,
     morph::morph,
-    forward_io::{Vertex},
     view_transformations::{position_world_to_clip, direction_world_to_clip, frag_coord_to_uv},
 }
 #import bevy_liminal::view_helpers::get_viewport
+
+struct Vertex {
+    @builtin(instance_index) instance_index: u32,
+#ifdef VERTEX_POSITIONS
+    @location(0) position: vec3<f32>,
+#endif
+#ifdef VERTEX_NORMALS
+    @location(1) normal: vec3<f32>,
+#endif
+#ifdef VERTEX_UVS_A
+    @location(2) uv: vec2<f32>,
+#endif
+#ifdef VERTEX_UVS_B
+    @location(3) uv_b: vec2<f32>,
+#endif
+#ifdef VERTEX_TANGENTS
+    @location(4) tangent: vec4<f32>,
+#endif
+#ifdef VERTEX_COLORS
+    @location(5) color: vec4<f32>,
+#endif
+#ifdef SKINNED
+    @location(6) joint_indices: vec4<u32>,
+    @location(7) joint_weights: vec4<f32>,
+#endif
+#ifdef MORPH_TARGETS
+    @builtin(vertex_index) index: u32,
+#endif
+#ifdef HAS_OUTLINE_NORMALS
+    @location(8) outline_normal: vec3<f32>,
+#endif
+};
 @group(4) @binding(0) var occlusion_sampler: sampler;
 @group(4) @binding(1) var outline_depth_texture: texture_depth_2d;
 @group(4) @binding(2) var owner_texture: texture_2d<f32>;
@@ -90,6 +121,13 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
     let surface_clip = position_world_to_clip(world_position.xyz);
 
+#ifdef HAS_OUTLINE_NORMALS
+    // Pre-computed smoothed outline normals for correct concave mesh extrusion.
+    var hull_dir = mesh_functions::mesh_normal_local_to_world(
+        vertex.outline_normal,
+        vertex_no_morph.instance_index,
+    );
+#else
     // Radial extrusion from object origin. All vertices at the same position
     // extrude in the same direction, keeping corners connected on hard-edged
     // geometry (cuboids). Falls back to vertex normal when the vertex is at
@@ -108,6 +146,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     if hull_dir_len_sq < 1e-8 {
         hull_dir = vec3<f32>(0.0, 1.0, 0.0);
     }
+#endif
 #endif
 
     let shell_mode = outline.owner_data.y;

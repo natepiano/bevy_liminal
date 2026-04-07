@@ -9,6 +9,7 @@ mod mask;
 mod mask_pipeline;
 mod node;
 mod outline_builder;
+mod outline_normals;
 mod propagation;
 mod queue;
 mod render;
@@ -47,6 +48,8 @@ pub use outline_builder::JumpFloodState;
 pub use outline_builder::OutlineBuilder;
 pub use outline_builder::ScreenHullState;
 pub use outline_builder::WorldHullState;
+pub use outline_normals::ATTRIBUTE_OUTLINE_NORMAL;
+pub use outline_normals::generate_outline_normals;
 use render::DrawHull;
 use render::DrawOutline;
 use render::HullOutlineBindGroup;
@@ -79,6 +82,10 @@ impl Plugin for LiminalPlugin {
         app.add_observer(propagation::propagate_outline_on_mesh_added);
         app.add_observer(propagation::propagate_outline_on_scene_ready);
         app.add_observer(propagation::remove_outline_from_descendants);
+
+        // Outline normal generation observers
+        app.add_observer(outline_normals::generate_normals_on_outline_added);
+        app.add_observer(outline_normals::generate_normals_on_mesh_added);
 
         // Change detection for propagated outlines
         app.add_systems(PostUpdate, propagation::sync_propagated_outlines);
