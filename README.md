@@ -1,118 +1,114 @@
 # bevy_liminal
 
-[![crates.io](https://img.shields.io/crates/v/bevy_liminal)](https://crates.io/crates/bevy_liminal)
+[![Crates.io](https://img.shields.io/crates/v/bevy_liminal.svg)](https://crates.io/crates/bevy_liminal)
+[![Downloads](https://img.shields.io/crates/d/bevy_liminal.svg)](https://crates.io/crates/bevy_liminal)
 [![CI](https://github.com/natepiano/bevy_liminal/actions/workflows/ci.yml/badge.svg)](https://github.com/natepiano/bevy_liminal/actions/workflows/ci.yml)
-[![MIT/Apache 2.0](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/gylleus/bevy_liminal#license)
+[![MIT/Apache 2.0](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/natepiano/bevy_liminal#license)
 
+A Bevy plugin for rendering 3D mesh outlines using jump-flood and hull-extrusion methods.
 
-![Simple outlined cube from example](https://raw.githubusercontent.com/gylleus/bevy_liminal/refs/heads/main/assets/outlined_cube.png)
-
-
-This plugin provides outline rendering for 3D meshes using a multi-pass GPU approach with JFA *(jump flood algorithm)* for distance field generation.
-
-## Features
-
-- **GPU-optimized rendering** - Uses compute-based jump flood algorithm for efficient and smooth outline generation
-- **Customizable outlines** - Control width, color, intensity, and priority per mesh
-- **Depth-aware rendering** - Outlines respect depth relationships and handle intersecting geometry
-- **HDR support** - Works with both standard and HDR rendering pipelines
-- **Animation-friendly** - Supports animated meshes, skinning, and morph targets
-
-
-## Components
-
-### `MeshOutline`
-
-Add this component to any entity with a `Mesh3d` to enable outline rendering:
+## Usage
 
 ```rust
-// Basic outline
-MeshOutline::new(width)
+use bevy::prelude::*;
+use bevy_liminal::LiminalPlugin;
+use bevy_liminal::Outline;
+use bevy_liminal::OutlineCamera;
 
-// Customized outline
-MeshOutline::new(10.0)
-    .with_color(Color::srgb(1.0, 0.0, 0.0))  // Red outline
-    .with_intensity(0.8)                     // 80% strength
-    .with_priority(5.0)                      // Higher priority (for overlapping outlines)
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(LiminalPlugin)
+        .add_systems(Startup, setup)
+        .run();
+}
+
+fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+    commands.spawn((
+        Camera3d::default(),
+        OutlineCamera,
+    ));
+
+    commands.spawn((
+        Mesh3d(meshes.add(Sphere::new(1.0))),
+        Outline::screen_hull(2.0).build(),
+    ));
+}
 ```
 
-**Properties:**
-- `width: f32` - Outline width in pixels
-- `color: Color` - Outline color (supports HDR colors)
-- `intensity: f32` - Outline intensity (0.0 to 1.0+)
-- `priority: f32` - JumpFlood mode only (higher = front in overlaps)
-- `overlap: OverlapMode` - WorldHull/ScreenHull modes only (`Merged` or `Individual`)
+## Outline Methods
 
-Typestate builder (opt-in, non-breaking): `MeshOutline::builder(width) ... .to_world_hull() ... .build()`
-Legacy `MeshOutline::new(...)` is backwards compatible and does not enforce mode/property validity at compile time.
+Three rendering methods, each suited to different use cases:
 
-### `OutlineCamera`
-
-Mark cameras that should render outlines:
-
+- **JumpFlood** -- Screen-space silhouette expansion. Works on all geometry including flat panels. Width in pixels.
+- **WorldHull** -- Vertex extrusion with world-unit width. Outline thickness scales with camera distance.
+- **ScreenHull** -- Vertex extrusion with pixel width. Outline thickness stays constant on screen.
 
 ```rust
-commands.spawn((
-    Camera3d::default(),
-    OutlineCamera, // Enable outline rendering for this camera
-));
+// JumpFlood (default) -- 3px screen-space outline
+Outline::jump_flood(3.0).build();
+
+// ScreenHull -- 2px constant-width hull outline
+Outline::screen_hull(2.0).build();
+
+// WorldHull -- 0.05 world-unit hull outline
+Outline::world_hull(0.05).build();
 ```
 
-`OutlineCamera` automatically requires `DepthPrepass` for proper depth testing.
+## Overlap Modes
 
+Hull methods support three overlap modes for controlling how outlines interact:
 
-## Examples
+- **Merged** (default) -- Overlapping outlines merge into one shared silhouette.
+- **Grouped** -- Meshes in the same entity hierarchy merge, but are distinct from other groups.
+- **PerMesh** -- Every individual mesh gets its own outline boundary.
 
-Run the included examples to see the plugin in action:
+```rust
+use bevy_liminal::OverlapMode;
 
-```bash
-# Basic rotating cube with adjustable outline width
-cargo run --example simple
-
-# Glowing effect example (HDR)
-cargo run --example glowing
-
-# Animated character with outlines
-cargo run --example animated_mesh
-
-# Multiple intersecting objects with priority control
-cargo run --example intersecting
+Outline::screen_hull(2.0)
+    .with_overlap(OverlapMode::PerMesh)
+    .build();
 ```
 
-## How It Works
+## Outline Normals
 
-The plugin uses a three-pass GPU rendering approach:
+Hull methods automatically generate smoothed outline normals when an `Outline` component is added. These angle-weighted normals produce correct silhouette extrusion on concave and hard-edged meshes. Meshes without outline normals fall back to radial extrusion from the object origin.
 
-1. **Mask Pass** - Renders outlined meshes to generate seed data and depth information
-2. **Jump Flood Algorithm** - Efficiently propagates outline information across the screen using compute shaders
-3. **Compose Pass** - Combines the original scene with the computed outline effect by comparing against outline depth
+## HDR Glow
 
-This approach provides:
-- Consistent outline width regardless of mesh geometry
-- Proper handling of intersecting objects through priority system
-- Support for complex mesh features (skinning, morph targets)
+Set intensity > 1.0 to produce HDR glow when used with Bevy's bloom:
 
+```rust
+Outline::jump_flood(3.0)
+    .with_intensity(5.0)
+    .build();
+```
 
-## Technical Details
+## Hierarchy Propagation
 
-The plugin integrates with Bevy's render graph and adds a custom render node after the main 3D pass. It requires depth prepass to be enabled for proper depth-aware outline rendering.
+Adding `Outline` to a parent entity automatically propagates it to all descendant `Mesh3d` entities. Use `NoOutline` to exclude specific children.
 
-Outline data is packed into GPU textures using a flood-fill algorithm that efficiently calculates distance fields for smooth, consistent outline rendering across different mesh topologies.
+## Version Compatibility
 
-
-## Versions
-
-| Bevy |    bevy_liminal |
-|--------------|--------------|
-| 0.18.X       | 0.3.0        |
-| 0.17.X       | 0.2.0        |
-| 0.16.X       | 0.1.1        |
-
-
-## Future work
-
-* Improve batching and performance
+| bevy_liminal | Bevy |
+|--------------|------|
+| 0.0          | 0.18 |
 
 ## License
 
-This repository is free to use and copy and is licensed under either MIT or Apache-2.0.
+`bevy_liminal` is free, open source and permissively licensed!
+Except where noted (below and/or in individual files), all code in this repository is dual-licensed under either:
+
+* MIT License ([LICENSE-MIT](LICENSE-MIT) or [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
+* Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
+
+at your option.
+
+### Your contributions
+
+Unless you explicitly state otherwise,
+any contribution intentionally submitted for inclusion in the work by you,
+as defined in the Apache-2.0 license,
+shall be dual licensed as above,
+without any additional terms or conditions.
