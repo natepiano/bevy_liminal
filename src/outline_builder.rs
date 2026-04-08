@@ -8,13 +8,14 @@ use super::types::OutlineActivity;
 use super::types::OutlineMethod;
 use super::types::OverlapMode;
 
-/// Trait implemented by outline mode type-state markers.
-pub(crate) trait OutlineModeState {
+/// Sealed trait implemented by outline mode type-state markers.
+pub trait OutlineModeState {
+    /// The [`OutlineMethod`] variant this state represents.
     const MODE: OutlineMethod;
 }
 
 /// Marker trait for hull-based outline modes (`WorldHull`, `ScreenHull`).
-pub(crate) trait HullModeState: OutlineModeState {}
+pub trait HullModeState: OutlineModeState {}
 
 /// Type-state marker for the jump-flood outline method.
 #[derive(Debug, Clone, Copy)]
@@ -45,7 +46,7 @@ impl HullModeState for ScreenHullState {}
 
 /// Type-safe builder for constructing an `Outline` component.
 #[derive(Debug, Clone)]
-pub struct OutlineBuilder<M> {
+pub struct OutlineBuilder<M: OutlineModeState> {
     width:     f32,
     intensity: f32,
     color:     Color,
@@ -53,7 +54,7 @@ pub struct OutlineBuilder<M> {
     _mode:     PhantomData<M>,
 }
 
-const fn defaults<M>(width: f32) -> OutlineBuilder<M> {
+const fn defaults<M: OutlineModeState>(width: f32) -> OutlineBuilder<M> {
     OutlineBuilder {
         width,
         intensity: 1.0,
@@ -97,7 +98,6 @@ impl OutlineBuilder<ScreenHullState> {
 }
 
 /// Settings available on all outline methods.
-#[allow(private_bounds, reason = "pub(crate) traits intentionally gate pub methods")]
 impl<M: OutlineModeState> OutlineBuilder<M> {
     /// Override the outline width.
     #[must_use]
@@ -122,7 +122,6 @@ impl<M: OutlineModeState> OutlineBuilder<M> {
 }
 
 /// Settings only available on hull methods (`WorldHull`, `ScreenHull`).
-#[allow(private_bounds, reason = "pub(crate) traits intentionally gate pub methods")]
 impl<M: HullModeState> OutlineBuilder<M> {
     /// Set the overlap mode for hull outlines.
     #[must_use]
