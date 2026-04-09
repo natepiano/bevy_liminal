@@ -29,6 +29,7 @@ use super::mask::OutlineBinKey;
 use super::mask_pipeline::HullPresence;
 use super::mask_pipeline::MaskPipelineKey;
 use super::mask_pipeline::MeshMaskPipeline;
+use super::outline_normals::ATTRIBUTE_OUTLINE_NORMAL;
 use super::types::ActiveOutlineModes;
 use super::types::ExtractedOutlineUniforms;
 use super::types::OutlineCamera;
@@ -220,11 +221,7 @@ pub(crate) fn queue_hull_outline(
                 HullPipelineKey {
                     mesh_key,
                     dynamic_range: DynamicRange::from_hdr(view.hdr),
-                    outline_normal_presence: if mesh
-                        .layout
-                        .0
-                        .contains(super::outline_normals::ATTRIBUTE_OUTLINE_NORMAL)
-                    {
+                    outline_normal_presence: if mesh.layout.0.contains(ATTRIBUTE_OUTLINE_NORMAL) {
                         OutlineNormalPresence::Present
                     } else {
                         OutlineNormalPresence::Absent

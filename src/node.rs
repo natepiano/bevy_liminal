@@ -27,6 +27,7 @@ use bevy_render::view::ViewTarget;
 use super::compose::ComposeOutputPipeline;
 use super::compose::ComposeVariant;
 use super::compose::SampleMode;
+use super::constants::JFA_NO_SEED_CLEAR_COLOR;
 use super::flood::FloodSettings;
 use super::flood::JumpFloodPass;
 use super::hull_pipeline::DynamicRange;
@@ -153,7 +154,7 @@ fn run_mask_init_pass(
         view:           &flood_textures.output.default_view,
         resolve_target: None,
         ops:            Operations {
-            load:  LoadOp::Clear(LinearRgba::new(-1.0, -1.0, -1.0, 0.0).into()),
+            load:  LoadOp::Clear(JFA_NO_SEED_CLEAR_COLOR.into()),
             store: StoreOp::Store,
         },
         depth_slice:    None,

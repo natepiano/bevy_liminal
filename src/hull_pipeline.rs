@@ -45,6 +45,7 @@ use bevy_render::sync_world::MainEntity;
 use bevy_render::view::ViewTarget;
 use nonmax::NonMaxU32;
 
+use super::constants::OUTLINE_NORMAL_SHADER_LOCATION;
 use super::outline_normals::ATTRIBUTE_OUTLINE_NORMAL;
 use super::shaders::HULL_SHADER_HANDLE;
 use super::uniforms::OutlineUniform;
@@ -158,7 +159,7 @@ impl SpecializedMeshPipeline for HullPipeline {
                     .push(VertexAttribute {
                         format:          VertexFormat::Float32x3,
                         offset:          attr.offset,
-                        shader_location: 8,
+                        shader_location: OUTLINE_NORMAL_SHADER_LOCATION,
                     });
             }
         }
