@@ -28,6 +28,7 @@ use bevy_render::render_resource::Face;
 use bevy_render::render_resource::FragmentState;
 use bevy_render::render_resource::GpuArrayBuffer;
 use bevy_render::render_resource::RenderPipelineDescriptor;
+use bevy_render::render_resource::Sampler;
 use bevy_render::render_resource::SamplerBindingType;
 use bevy_render::render_resource::SamplerDescriptor;
 use bevy_render::render_resource::ShaderStages;
@@ -83,7 +84,7 @@ pub(crate) struct HullPipeline {
     pub(crate) outline_bind_group_layout:    BindGroupLayoutDescriptor,
     pub(crate) depth_bind_group_layout:      BindGroupLayoutDescriptor,
     pub(crate) per_object_buffer_batch_size: Option<u32>,
-    pub(crate) occlusion_sampler:            bevy_render::render_resource::Sampler,
+    pub(crate) occlusion_sampler:            Sampler,
 }
 
 impl FromWorld for HullPipeline {
