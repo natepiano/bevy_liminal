@@ -17,20 +17,24 @@ pub(crate) const HULL_SHADER_HANDLE: Handle<Shader> =
 pub(crate) const VIEW_HELPERS_SHADER_HANDLE: Handle<Shader> =
     uuid_handle!("a3e7c2b1-9d4f-4e8a-b5c6-1f2d3e4a5b6c");
 
-pub(crate) fn load_shaders(app: &mut App) {
-    load_internal_asset!(app, MASK_SHADER_HANDLE, "mask.wgsl", Shader::from_wgsl);
-    load_internal_asset!(app, FLOOD_SHADER_HANDLE, "flood.wgsl", Shader::from_wgsl);
-    load_internal_asset!(
-        app,
-        COMPOSE_SHADER_HANDLE,
-        "compose_output.wgsl",
-        Shader::from_wgsl
-    );
-    load_internal_asset!(app, HULL_SHADER_HANDLE, "hull.wgsl", Shader::from_wgsl);
-    load_internal_asset!(
-        app,
-        VIEW_HELPERS_SHADER_HANDLE,
-        "view_helpers.wgsl",
-        Shader::from_wgsl
-    );
+pub(super) struct ShaderPlugin;
+
+impl Plugin for ShaderPlugin {
+    fn build(&self, app: &mut App) {
+        load_internal_asset!(app, MASK_SHADER_HANDLE, "mask.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, FLOOD_SHADER_HANDLE, "flood.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            COMPOSE_SHADER_HANDLE,
+            "compose_output.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(app, HULL_SHADER_HANDLE, "hull.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            VIEW_HELPERS_SHADER_HANDLE,
+            "view_helpers.wgsl",
+            Shader::from_wgsl
+        );
+    }
 }

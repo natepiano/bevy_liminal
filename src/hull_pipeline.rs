@@ -38,9 +38,7 @@ use bevy_render::render_resource::TextureFormat;
 use bevy_render::render_resource::TextureSampleType;
 use bevy_render::render_resource::VertexAttribute;
 use bevy_render::render_resource::VertexFormat;
-use bevy_render::render_resource::binding_types::sampler;
-use bevy_render::render_resource::binding_types::texture_2d;
-use bevy_render::render_resource::binding_types::texture_depth_2d;
+use bevy_render::render_resource::binding_types;
 use bevy_render::renderer::RenderDevice;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::view::ViewTarget;
@@ -105,9 +103,9 @@ impl FromWorld for HullPipeline {
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
-                    sampler(SamplerBindingType::Filtering),
-                    texture_depth_2d(),
-                    texture_2d(TextureSampleType::Float { filterable: true }),
+                    binding_types::sampler(SamplerBindingType::Filtering),
+                    binding_types::texture_depth_2d(),
+                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
                 ),
             ),
         );

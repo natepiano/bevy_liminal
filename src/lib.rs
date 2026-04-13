@@ -74,9 +74,10 @@ pub struct LiminalPlugin;
 
 impl Plugin for LiminalPlugin {
     fn build(&self, app: &mut App) {
-        shaders::load_shaders(app);
-
-        app.add_plugins((ExtractComponentPlugin::<OutlineCamera>::default(),));
+        app.add_plugins((
+            shaders::ShaderPlugin,
+            ExtractComponentPlugin::<OutlineCamera>::default(),
+        ));
 
         // Propagation observers
         app.add_observer(propagation::propagate_outline_to_descendants);

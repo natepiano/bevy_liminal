@@ -24,16 +24,13 @@ use bevy::render::render_resource::ShaderStages;
 use bevy::render::render_resource::ShaderType;
 use bevy::render::render_resource::TextureFormat;
 use bevy::render::render_resource::TextureSampleType;
-use bevy::render::render_resource::binding_types::sampler;
-use bevy::render::render_resource::binding_types::texture_2d;
-use bevy::render::render_resource::binding_types::uniform_buffer;
+use bevy::render::render_resource::binding_types;
 use bevy::render::renderer::RenderContext;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::renderer::RenderQueue;
 use bevy::render::texture::CachedTexture;
 use bevy_kana::ToUsize;
 use bevy_render::render_resource::TextureView;
-use bevy_render::render_resource::binding_types::texture_depth_2d;
 
 use super::shaders::FLOOD_SHADER_HANDLE;
 use super::types::ExtractedOutlineUniforms;
@@ -81,11 +78,11 @@ impl FromWorld for JumpFloodPipeline {
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
-                    texture_2d(TextureSampleType::Float { filterable: true }), // flood_texture
-                    sampler(SamplerBindingType::Filtering),                    // texture_sampler
-                    uniform_buffer::<JumpFloodUniform>(true),                  // instance
-                    texture_depth_2d(),                                        // depth_texture
-                    texture_2d(TextureSampleType::Float { filterable: true }), /* appearance_texture */
+                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }), /* flood_texture */
+                    binding_types::sampler(SamplerBindingType::Filtering), // texture_sampler
+                    binding_types::uniform_buffer::<JumpFloodUniform>(true), // instance
+                    binding_types::texture_depth_2d(),                     // depth_texture
+                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }), /* appearance_texture */
                 ),
             ),
         );
@@ -126,7 +123,7 @@ impl FromWorld for JumpFloodPipeline {
             render_device.limits().min_uniform_buffer_offset_alignment,
         ));
         let mut offsets = Vec::new();
-        for bit in 0..32 {
+        for bit in 0..u32::BITS {
             offsets.push(uniform_buffer.push(&JumpFloodUniform {
                 step_length: 1 << bit,
             }));

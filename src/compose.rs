@@ -14,11 +14,8 @@ use bevy::render::render_resource::SamplerBindingType;
 use bevy::render::render_resource::ShaderStages;
 use bevy::render::render_resource::TextureFormat;
 use bevy::render::render_resource::TextureSampleType;
-use bevy::render::render_resource::binding_types::sampler;
-use bevy::render::render_resource::binding_types::texture_2d;
+use bevy::render::render_resource::binding_types;
 use bevy::shader::ShaderDefVal;
-use bevy_render::render_resource::binding_types::texture_2d_multisampled;
-use bevy_render::render_resource::binding_types::texture_depth_2d;
 
 use super::hull_pipeline::DynamicRange;
 use super::shaders::COMPOSE_SHADER_HANDLE;
@@ -109,13 +106,13 @@ impl FromWorld for ComposeOutputPipeline {
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    texture_depth_2d(),
-                    texture_depth_2d(),
-                    texture_depth_2d(),
+                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
+                    binding_types::sampler(SamplerBindingType::Filtering),
+                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
+                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
+                    binding_types::texture_depth_2d(),
+                    binding_types::texture_depth_2d(),
+                    binding_types::texture_depth_2d(),
                 ),
             ),
         );
@@ -125,13 +122,13 @@ impl FromWorld for ComposeOutputPipeline {
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    texture_2d_multisampled(TextureSampleType::Depth),
-                    texture_depth_2d(),
-                    texture_2d_multisampled(TextureSampleType::Depth),
+                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
+                    binding_types::sampler(SamplerBindingType::Filtering),
+                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
+                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
+                    binding_types::texture_2d_multisampled(TextureSampleType::Depth),
+                    binding_types::texture_depth_2d(),
+                    binding_types::texture_2d_multisampled(TextureSampleType::Depth),
                 ),
             ),
         );

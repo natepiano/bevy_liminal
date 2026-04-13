@@ -68,33 +68,48 @@ fn main() {
 
 // --- Constants ---
 
-const AMBIENT_LIGHT_BRIGHTNESS: f32 = 200.0;
+// Auto-mode
 const AUTO_EXIT_DELAY_SECS: f32 = 2.0;
 const AUTO_MODE_ENV_VAR: &str = "BENCHMARK_AUTO";
 const AUTO_STARTUP_DELAY_SECS: f32 = 5.0;
+
+// Camera
 const CAMERA_LOOK_AT: Vec3 = Vec3::new(0.0, 4.0, 0.0);
 const CAMERA_POSITION: Vec3 = Vec3::new(8.0, 2.0, 14.0);
+
+// Cube fill ratios
 const CUBE_FILL_RATIO_5: f32 = 0.45;
 const CUBE_FILL_RATIO_10: f32 = 0.65;
 const CUBE_FILL_RATIO_100: f32 = 0.55;
 const CUBE_FILL_RATIO_1000: f32 = 0.35;
 const CUBE_FILL_RATIO_10000: f32 = 0.25;
 const CUBE_FILL_RATIO_50000: f32 = 0.15;
-const DEFAULT_OUTLINE_INTENSITY: f32 = 1.0;
-const DEFAULT_OUTLINE_WIDTH: f32 = 5.0;
+
+// Grid layout
 const DEPTH_SPACING_MULTIPLIER: f32 = 3.0;
 const GRID_FILL_FRACTION: f32 = 0.95;
 const GROUND_PLANE_SIZE: f32 = 100.0;
 const GROUND_PLANE_Y: f32 = -3.0;
+
+// HUD
 const HUD_FONT_SIZE: f32 = 18.0;
 const HUD_PADDING: f32 = 10.0;
 const HUD_UPDATE_INTERVAL: f32 = 0.25;
+
+// Lighting
+const AMBIENT_LIGHT_BRIGHTNESS: f32 = 200.0;
 const LIGHT_INTENSITY: f32 = 10_000_000.0;
 const LIGHT_POSITION: Vec3 = Vec3::new(8.0, 16.0, 8.0);
 const LIGHT_RANGE: f32 = 100.0;
+
+// Measurement
 const MEASURE_FRAMES: u32 = 600;
 const MS_PER_SECOND: f64 = 1000.0;
 const WARMUP_FRAMES: u32 = 120;
+
+// Outline defaults
+const DEFAULT_OUTLINE_INTENSITY: f32 = 1.0;
+const DEFAULT_OUTLINE_WIDTH: f32 = 5.0;
 
 // --- Scenario Definitions ---
 
@@ -188,6 +203,18 @@ enum BenchmarkMode {
     Interactive,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum OutlinePresence {
+    Enabled,
+    Disabled,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ExitBehavior {
+    KeepRunning,
+    OnComplete,
+}
+
 enum BenchmarkPhase {
     Idle,
     StartupDelay,
@@ -223,7 +250,7 @@ impl ScenarioResult {
 struct BenchmarkState {
     mode:             BenchmarkMode,
     current_scenario: usize,
-    outline_enabled:  bool,
+    outline_presence: OutlinePresence,
     outline_mode:     OutlineMethod,
     phase:            BenchmarkPhase,
     frame_counter:    u32,
@@ -231,13 +258,17 @@ struct BenchmarkState {
     results:          Vec<ScenarioResult>,
     startup_timer:    Timer,
     exit_timer:       Timer,
-    exit_on_complete: bool,
+    exit_behavior:    ExitBehavior,
 }
 
 impl BenchmarkState {
     fn new() -> Self {
-        let exit_on_complete = env::var(AUTO_MODE_ENV_VAR).is_ok_and(|v| v == "1");
-        let (mode, phase) = if exit_on_complete {
+        let exit_behavior = if env::var(AUTO_MODE_ENV_VAR).is_ok_and(|v| v == "1") {
+            ExitBehavior::OnComplete
+        } else {
+            ExitBehavior::KeepRunning
+        };
+        let (mode, phase) = if exit_behavior == ExitBehavior::OnComplete {
             (BenchmarkMode::Auto, BenchmarkPhase::StartupDelay)
         } else {
             (BenchmarkMode::Interactive, BenchmarkPhase::Idle)
@@ -246,7 +277,7 @@ impl BenchmarkState {
         Self {
             mode,
             current_scenario: 0,
-            outline_enabled: false,
+            outline_presence: OutlinePresence::Disabled,
             outline_mode: OutlineMethod::default(),
             phase,
             frame_counter: 0,
@@ -254,13 +285,16 @@ impl BenchmarkState {
             results: Vec::with_capacity(SCENARIOS.len() * 2),
             startup_timer: Timer::from_seconds(AUTO_STARTUP_DELAY_SECS, TimerMode::Once),
             exit_timer: Timer::from_seconds(AUTO_EXIT_DELAY_SECS, TimerMode::Once),
-            exit_on_complete,
+            exit_behavior,
         }
     }
 
     fn result_name(&self) -> String {
         let scenario = &SCENARIOS[self.current_scenario];
-        let suffix = if self.outline_enabled { "on" } else { "off" };
+        let suffix = match self.outline_presence {
+            OutlinePresence::Enabled => "on",
+            OutlinePresence::Disabled => "off",
+        };
         let mode_label = outline_mode_label(self.outline_mode);
         format!("{} {suffix} ({mode_label})", scenario.name)
     }
@@ -409,7 +443,7 @@ fn spawn_scenario(
     materials: &mut Assets<StandardMaterial>,
     scenario: &ScenarioDefinition,
     viewport: &ViewportInfo,
-    outline_enabled: bool,
+    outline_presence: OutlinePresence,
     outline_mode: OutlineMethod,
 ) {
     let ScenarioKind::Grid {
@@ -426,7 +460,7 @@ fn spawn_scenario(
             width,
             cube_fill,
             viewport,
-            outline_enabled,
+            outline_presence,
             outline_mode,
         },
     );
@@ -467,7 +501,7 @@ fn spawn_grid(
         width,
         cube_fill,
         viewport,
-        outline_enabled,
+        outline_presence,
         outline_mode,
     } = spec;
     let mesh_handle = meshes.add(Cuboid::default());
@@ -482,7 +516,7 @@ fn spawn_grid(
             width,
             cube_fill,
             viewport,
-            outline_enabled,
+            outline_presence,
             outline_mode,
         );
     } else {
@@ -510,7 +544,7 @@ fn spawn_grid(
                     Transform::from_translation(position).with_scale(Vec3::splat(cube_scale)),
                     BenchmarkEntity,
                 ));
-                if outline_enabled {
+                if outline_presence == OutlinePresence::Enabled {
                     entity.insert(build_outline(width, outline_mode));
                 }
                 spawned += 1;
@@ -527,7 +561,7 @@ fn spawn_3d_grid(
     width: f32,
     cube_fill: f32,
     viewport: &ViewportInfo,
-    outline_enabled: bool,
+    outline_presence: OutlinePresence,
     outline_mode: OutlineMethod,
 ) {
     // 3D grid: 10x10 front face, depth layers as needed
@@ -559,7 +593,7 @@ fn spawn_3d_grid(
                     Transform::from_translation(position).with_scale(Vec3::splat(cube_scale)),
                     BenchmarkEntity,
                 ));
-                if outline_enabled {
+                if outline_presence == OutlinePresence::Enabled {
                     entity.insert(build_outline(width, outline_mode));
                 }
                 spawned += 1;
@@ -569,12 +603,12 @@ fn spawn_3d_grid(
 }
 
 struct GridSpawnSpec<'a> {
-    count:           u32,
-    width:           f32,
-    cube_fill:       f32,
-    viewport:        &'a ViewportInfo,
-    outline_enabled: bool,
-    outline_mode:    OutlineMethod,
+    count:            u32,
+    width:            f32,
+    cube_fill:        f32,
+    viewport:         &'a ViewportInfo,
+    outline_presence: OutlinePresence,
+    outline_mode:     OutlineMethod,
 }
 
 // --- Main Benchmark Tick ---
@@ -627,10 +661,9 @@ fn handle_setup_phase(params: &mut BenchmarkTickParams<'_, '_>) {
     params.state.results.retain(|r| r.name != result_name);
 
     let scenario = &SCENARIOS[params.state.current_scenario];
-    let outline_label = if params.state.outline_enabled {
-        "on"
-    } else {
-        "off"
+    let outline_label = match params.state.outline_presence {
+        OutlinePresence::Enabled => "on",
+        OutlinePresence::Disabled => "off",
     };
     info!(
         "Setting up scenario: {} [outline {outline_label}] ({}/{})",
@@ -653,7 +686,7 @@ fn handle_setup_phase(params: &mut BenchmarkTickParams<'_, '_>) {
         &mut params.materials,
         scenario,
         &viewport,
-        params.state.outline_enabled,
+        params.state.outline_presence,
         params.state.outline_mode,
     );
 
@@ -698,23 +731,23 @@ fn handle_analyze_phase(state: &mut BenchmarkState) {
         state.results.push(result);
     }
 
-    if !state.outline_enabled {
-        state.outline_enabled = true;
+    if state.outline_presence == OutlinePresence::Disabled {
+        state.outline_presence = OutlinePresence::Enabled;
         state.phase = BenchmarkPhase::Setup;
         return;
     }
 
     if state.mode == BenchmarkMode::Auto && state.current_scenario + 1 < SCENARIOS.len() {
-        state.outline_enabled = false;
+        state.outline_presence = OutlinePresence::Disabled;
         state.current_scenario += 1;
         state.phase = BenchmarkPhase::Setup;
         return;
     }
 
-    state.outline_enabled = false;
+    state.outline_presence = OutlinePresence::Disabled;
     if state.mode == BenchmarkMode::Auto {
         write_results(&state.results);
-        if state.exit_on_complete {
+        if state.exit_behavior == ExitBehavior::OnComplete {
             info!("Auto benchmark complete, exiting in {AUTO_EXIT_DELAY_SECS}s");
             state.phase = BenchmarkPhase::ExitDelay;
         } else {
@@ -749,7 +782,7 @@ fn handle_input(input: Res<ButtonInput<KeyCode>>, mut state: ResMut<BenchmarkSta
         info!("Starting auto benchmark run");
         state.mode = BenchmarkMode::Auto;
         state.current_scenario = 0;
-        state.outline_enabled = false;
+        state.outline_presence = OutlinePresence::Disabled;
         state.results.clear();
         state.phase = BenchmarkPhase::Setup;
         return;
@@ -761,7 +794,7 @@ fn handle_input(input: Res<ButtonInput<KeyCode>>, mut state: ResMut<BenchmarkSta
         info!("Outline mode: {}", outline_mode_label(new_mode));
         state.outline_mode = new_mode;
         state.mode = BenchmarkMode::Interactive;
-        state.outline_enabled = false;
+        state.outline_presence = OutlinePresence::Disabled;
         state.phase = BenchmarkPhase::Setup;
         return;
     }
@@ -772,7 +805,7 @@ fn handle_input(input: Res<ButtonInput<KeyCode>>, mut state: ResMut<BenchmarkSta
             info!("Switching to scenario: {}", scenario.name);
             state.mode = BenchmarkMode::Interactive;
             state.current_scenario = idx;
-            state.outline_enabled = false;
+            state.outline_presence = OutlinePresence::Disabled;
             state.phase = BenchmarkPhase::Setup;
             return;
         }
