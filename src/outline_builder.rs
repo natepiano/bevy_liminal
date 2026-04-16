@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use bevy::prelude::Color;
 
+use super::constants::DEFAULT_OUTLINE_INTENSITY;
 use super::types::LineStyle;
 use super::types::Outline;
 use super::types::OutlineActivity;
@@ -57,7 +58,7 @@ pub struct OutlineBuilder<M: OutlineModeState> {
 const fn defaults<M: OutlineModeState>(width: f32) -> OutlineBuilder<M> {
     OutlineBuilder {
         width,
-        intensity: 1.0,
+        intensity: DEFAULT_OUTLINE_INTENSITY,
         color: Color::BLACK,
         overlap: OverlapMode::Merged,
         _mode: PhantomData,

@@ -47,7 +47,7 @@ pub fn generate_outline_normals(mesh: &mut Mesh) {
     }
 
     // Accumulate angle-weighted face normals per unique position.
-    // Key by f32::to_bits() for exact position matching (no floating-point tolerance).
+    // Key by `f32::to_bits()` for exact position matching (no floating-point tolerance).
     let mut accumulated_normals: HashMap<[u32; 3], Vec3> = HashMap::new();
 
     let triangle_count = index_count / 3;

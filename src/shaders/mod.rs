@@ -17,7 +17,7 @@ pub(crate) const HULL_SHADER_HANDLE: Handle<Shader> =
 pub(crate) const VIEW_HELPERS_SHADER_HANDLE: Handle<Shader> =
     uuid_handle!("a3e7c2b1-9d4f-4e8a-b5c6-1f2d3e4a5b6c");
 
-pub(super) struct ShaderPlugin;
+pub(crate) struct ShaderPlugin;
 
 impl Plugin for ShaderPlugin {
     fn build(&self, app: &mut App) {

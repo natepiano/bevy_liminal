@@ -13,5 +13,8 @@ pub(crate) const JFA_NO_SEED_CLEAR_COLOR: LinearRgba = LinearRgba::new(-1.0, -1.
 /// "no owner" in the shader, so all valid owner IDs start at 1.0.
 pub(crate) const OWNER_ID_OFFSET: f32 = 1.0;
 
+/// Multiplicative identity — no scaling applied to the outline color.
+pub(crate) const DEFAULT_OUTLINE_INTENSITY: f32 = 1.0;
+
 /// Shader binding location for the outline normal vertex attribute.
 pub(crate) const OUTLINE_NORMAL_SHADER_LOCATION: u32 = 8;

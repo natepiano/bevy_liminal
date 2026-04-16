@@ -20,14 +20,19 @@ use bevy_liminal::OutlineMethod;
 use bevy_liminal::OverlapMode;
 use bevy_window_manager::WindowManagerPlugin;
 
-const OUTLINE_WIDTH: f32 = 4.0;
-const OUTLINE_COLOR: Color = Color::srgb(0.0, 0.8, 1.0);
-const OUTLINE_INTENSITY: f32 = 1.5;
+// Grid layout
 const GRID_SPACING: f32 = 5.0;
 const SPACESHIP_SCALE: f32 = 0.3;
+
+// Outline
+const OUTLINE_COLOR: Color = Color::srgb(0.0, 0.8, 1.0);
+const OUTLINE_INTENSITY: f32 = 1.5;
+const OUTLINE_WIDTH: f32 = 4.0;
+
+// Zoom
+const ZOOM_DURATION_MS: u64 = 1000;
 const ZOOM_MARGIN_MESH: f32 = 0.15;
 const ZOOM_MARGIN_SCENE: f32 = 0.08;
-const ZOOM_DURATION_MS: u64 = 1000;
 
 struct MeshAndMaterial {
     mesh:     Handle<Mesh>,

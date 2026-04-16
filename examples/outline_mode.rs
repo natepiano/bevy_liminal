@@ -21,11 +21,14 @@ use bevy_liminal::OutlineMethod;
 use bevy_liminal::OverlapMode;
 use bevy_window_manager::WindowManagerPlugin;
 
-const INITIAL_JUMP_FLOOD_WIDTH_PX: f32 = 5.0;
-const INITIAL_HULL_WIDTH_WORLD: f32 = 0.01;
-const INITIAL_SHELL_WIDTH_PX: f32 = 2.0;
+// Initial overlap modes
 const INITIAL_HULL_OVERLAP: OverlapMode = OverlapMode::Merged;
 const INITIAL_SHELL_OVERLAP: OverlapMode = OverlapMode::PerMesh;
+
+// Initial widths
+const INITIAL_HULL_WIDTH_WORLD: f32 = 0.01;
+const INITIAL_JUMP_FLOOD_WIDTH_PX: f32 = 5.0;
+const INITIAL_SHELL_WIDTH_PX: f32 = 2.0;
 
 fn main() {
     App::new()
