@@ -3,8 +3,8 @@ use bevy::render::render_resource::ShaderType;
 use bytemuck::Pod;
 use bytemuck::Zeroable;
 
-use super::types::ExtractedOutline;
-use super::types::OutlineMethod;
+use super::extract::ExtractedOutline;
+use super::outline::OutlineMethod;
 
 #[derive(Debug, Clone, ShaderType, Pod, Zeroable, Copy)]
 #[repr(C)]

@@ -5,6 +5,7 @@ use bevy_kana::ToU32;
 use bevy_render::camera::ExtractedCamera;
 use bevy_render::render_graph::NodeRunError;
 use bevy_render::render_graph::RenderGraphContext;
+use bevy_render::render_graph::RenderLabel;
 use bevy_render::render_graph::ViewNode;
 use bevy_render::render_phase::BinnedRenderPhase;
 use bevy_render::render_phase::ViewBinnedRenderPhases;
@@ -28,13 +29,20 @@ use super::compose::ComposeOutputPipeline;
 use super::compose::ComposeVariant;
 use super::compose::SampleMode;
 use super::constants::JFA_NO_SEED_CLEAR_COLOR;
+use super::extract::ActiveOutlineModes;
 use super::flood::FloodSettings;
 use super::flood::JumpFloodPass;
 use super::hull_pipeline::DynamicRange;
 use super::mask::HullOutlinePhase;
 use super::mask::JfaOutlinePhase;
 use super::texture::FloodTextures;
-use super::types::ActiveOutlineModes;
+
+/// Render graph label for the outline pass.
+#[derive(Copy, Clone, Debug, RenderLabel, Hash, PartialEq, Eq)]
+pub(crate) enum OutlineRenderGraphNode {
+    /// The main outline render node that runs mask, flood, hull, and compose sub-passes.
+    OutlineNode,
+}
 
 #[derive(Default)]
 pub(crate) struct OutlineNode;

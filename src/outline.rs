@@ -1,5 +1,6 @@
 use bevy::core_pipeline::prepass::DepthPrepass;
 use bevy::prelude::*;
+use bevy::render::render_resource::TextureUsages;
 use bevy_render::extract_component::ExtractComponent;
 
 use crate::outline_builder::JumpFloodState;
@@ -36,6 +37,26 @@ pub struct NoOutline;
 #[reflect(Component)]
 #[require(DepthPrepass)]
 pub struct OutlineCamera;
+
+/// Ensures the main pass depth texture has `TEXTURE_BINDING` so the compose shader
+/// can sample it for correct occlusion of transmissive/transparent geometry.
+///
+/// Fires once when `OutlineCamera` is added, rather than polling every frame.
+///
+/// Needs to run in the main app because `Camera3d::depth_texture_usages` controls
+/// how the GPU texture is allocated — by the time extraction runs, it's too late.
+///
+/// See `bevy_pbr::atmosphere::configure_camera_depth_usages` for the same pattern in Bevy.
+pub(crate) fn configure_outline_camera_depth_texture(
+    added: On<Add, OutlineCamera>,
+    mut cameras: Query<&mut Camera3d>,
+) {
+    if let Ok(mut camera_3d) = cameras.get_mut(added.entity) {
+        let mut usages = TextureUsages::from(camera_3d.depth_texture_usages);
+        usages |= TextureUsages::TEXTURE_BINDING;
+        camera_3d.depth_texture_usages = usages.into();
+    }
+}
 
 /// Adds a mesh outline effect to an entity with a `Mesh3d` component.
 ///

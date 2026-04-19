@@ -32,9 +32,9 @@ use bevy::render::texture::CachedTexture;
 use bevy_kana::ToUsize;
 use bevy_render::render_resource::TextureView;
 
+use super::extract::ExtractedOutlineUniforms;
+use super::outline::OutlineCamera;
 use super::shaders::FLOOD_SHADER_HANDLE;
-use super::types::ExtractedOutlineUniforms;
-use super::types::OutlineCamera;
 
 #[derive(ShaderType)]
 pub(crate) struct JumpFloodUniform {

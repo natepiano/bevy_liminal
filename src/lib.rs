@@ -8,6 +8,7 @@ mod hull_pipeline;
 mod mask;
 mod mask_pipeline;
 mod node;
+mod outline;
 mod outline_builder;
 mod outline_normals;
 mod propagation;
@@ -15,7 +16,6 @@ mod queue;
 mod render;
 mod shaders;
 mod texture;
-mod types;
 mod uniforms;
 mod view;
 
@@ -38,12 +38,22 @@ use bevy_render::render_resource::GpuArrayBuffer;
 use bevy_render::render_resource::SpecializedMeshPipelines;
 use bevy_render::renderer::RenderDevice;
 use compose::ComposeOutputPipeline;
+use extract::ActiveOutlineModes;
+use extract::ExtractedOutlineUniforms;
 use flood::JumpFloodPipeline;
 use hull_pipeline::HullPipeline;
 use mask::HullOutlinePhase;
 use mask::JfaOutlinePhase;
 use mask_pipeline::MeshMaskPipeline;
 use node::OutlineNode;
+use node::OutlineRenderGraphNode;
+pub use outline::LineStyle;
+pub use outline::NoOutline;
+pub use outline::Outline;
+pub use outline::OutlineActivity;
+pub use outline::OutlineCamera;
+pub use outline::OutlineMethod;
+pub use outline::OverlapMode;
 pub use outline_builder::HullModeState;
 pub use outline_builder::JumpFloodState;
 pub use outline_builder::OutlineBuilder;
@@ -58,16 +68,6 @@ use render::HullOutlineBindGroup;
 use render::HullOutlineUniformBuffer;
 use render::OutlineBindGroup;
 use render::OutlineUniformBuffer;
-use types::ActiveOutlineModes;
-use types::ExtractedOutlineUniforms;
-pub use types::LineStyle;
-pub use types::NoOutline;
-pub use types::Outline;
-pub use types::OutlineActivity;
-pub use types::OutlineCamera;
-pub use types::OutlineMethod;
-use types::OutlineRenderGraphNode;
-pub use types::OverlapMode;
 
 /// Bevy plugin that registers outline rendering systems, pipelines, and render graph nodes.
 pub struct LiminalPlugin;
@@ -95,7 +95,7 @@ impl Plugin for LiminalPlugin {
 
         // Ensure the main pass depth texture has TEXTURE_BINDING so the compose
         // shader can sample it for correct occlusion of transmissive/transparent geometry.
-        app.add_observer(types::configure_outline_camera_depth_texture);
+        app.add_observer(outline::configure_outline_camera_depth_texture);
 
         app.add_plugins((
             BinnedRenderPhasePlugin::<JfaOutlinePhase, MeshMaskPipeline>::new(

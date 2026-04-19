@@ -3,11 +3,11 @@ use std::marker::PhantomData;
 use bevy::prelude::Color;
 
 use super::constants::DEFAULT_OUTLINE_INTENSITY;
-use super::types::LineStyle;
-use super::types::Outline;
-use super::types::OutlineActivity;
-use super::types::OutlineMethod;
-use super::types::OverlapMode;
+use super::outline::LineStyle;
+use super::outline::Outline;
+use super::outline::OutlineActivity;
+use super::outline::OutlineMethod;
+use super::outline::OverlapMode;
 
 /// Sealed trait implemented by outline mode type-state markers.
 pub trait OutlineModeState {

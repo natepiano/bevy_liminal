@@ -23,13 +23,13 @@ use bevy_render::renderer::RenderDevice;
 use bevy_render::renderer::RenderQueue;
 use bytemuck::Zeroable;
 
+use super::extract::ActiveOutlineModes;
+use super::extract::ExtractedOutlineUniforms;
 use super::hull_pipeline::HullPipeline;
 use super::mask::HullOutlinePhase;
 use super::mask::JfaOutlinePhase;
 use super::mask_pipeline::MeshMaskPipeline;
 use super::texture::FloodTextures;
-use super::types::ActiveOutlineModes;
-use super::types::ExtractedOutlineUniforms;
 use super::uniforms::OutlineUniform;
 
 pub(crate) type DrawOutline = (
