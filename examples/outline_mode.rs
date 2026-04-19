@@ -341,20 +341,18 @@ fn adjust_overlap(
     mut overlap_control: ResMut<OverlapControl>,
     mut outline_query: Query<&mut Outline>,
 ) {
-    if mode_toggle.mode == OutlineMethod::JumpFlood {
-        return;
-    }
-
     let decrease = input.just_pressed(KeyCode::Minus);
     let increase = input.just_pressed(KeyCode::Equal);
     if !decrease && !increase {
         return;
     }
 
-    let current = match mode_toggle.mode {
-        OutlineMethod::WorldHull => &mut overlap_control.hull_overlap,
-        OutlineMethod::ScreenHull => &mut overlap_control.shell_overlap,
-        OutlineMethod::JumpFlood => return,
+    let Some(current) = (match mode_toggle.mode {
+        OutlineMethod::WorldHull => Some(&mut overlap_control.hull_overlap),
+        OutlineMethod::ScreenHull => Some(&mut overlap_control.shell_overlap),
+        OutlineMethod::JumpFlood => None,
+    }) else {
+        return;
     };
 
     *current = match *current {

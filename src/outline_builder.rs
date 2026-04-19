@@ -52,7 +52,7 @@ pub struct OutlineBuilder<M: OutlineModeState> {
     intensity: f32,
     color:     Color,
     overlap:   OverlapMode,
-    _mode:     PhantomData<M>,
+    mode:      PhantomData<M>,
 }
 
 const fn defaults<M: OutlineModeState>(width: f32) -> OutlineBuilder<M> {
@@ -61,7 +61,7 @@ const fn defaults<M: OutlineModeState>(width: f32) -> OutlineBuilder<M> {
         intensity: DEFAULT_OUTLINE_INTENSITY,
         color: Color::BLACK,
         overlap: OverlapMode::Merged,
-        _mode: PhantomData,
+        mode: PhantomData,
     }
 }
 

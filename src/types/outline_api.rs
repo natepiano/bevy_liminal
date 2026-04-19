@@ -1,95 +1,11 @@
 use bevy::core_pipeline::prepass::DepthPrepass;
 use bevy::prelude::*;
-use bevy::render::render_resource::TextureUsages;
-use bevy_kana::ToF32;
 use bevy_render::extract_component::ExtractComponent;
-use bevy_render::render_graph::RenderLabel;
-use bevy_render::sync_world::MainEntity;
-use bevy_render::sync_world::MainEntityHashMap;
 
-use super::constants::OWNER_ID_OFFSET;
-use super::outline_builder::JumpFloodState;
-use super::outline_builder::OutlineBuilder;
-use super::outline_builder::ScreenHullState;
-use super::outline_builder::WorldHullState;
-
-/// Tracks which outline infrastructure is needed this frame.
-/// Derived from the extracted outline cache to gate expensive hull resources.
-#[derive(Resource, Default)]
-pub(crate) struct ActiveOutlineModes {
-    /// Which outline methods are active this frame.
-    pub(crate) methods: ActiveOutlineMethods,
-}
-
-/// Render-world cache of all extracted outlines, keyed by main-world entity.
-#[derive(Resource, Default)]
-pub(crate) struct ExtractedOutlineUniforms {
-    /// Map from main-world entity to its extracted outline data.
-    pub(crate) by_main_entity: MainEntityHashMap<ExtractedOutline>,
-    /// Which outline methods appear in the extracted cache.
-    pub(crate) methods:        ActiveOutlineMethods,
-    /// Largest JFA outline width across all extracted outlines.
-    pub(crate) max_jfa_width:  f32,
-}
-
-impl ExtractedOutlineUniforms {
-    pub(crate) fn upsert(&mut self, entity: MainEntity, outline: ExtractedOutline) -> bool {
-        if let Some(existing) = self.by_main_entity.get_mut(&entity) {
-            if *existing == outline {
-                return false;
-            }
-            *existing = outline;
-            return true;
-        }
-
-        self.by_main_entity.insert(entity, outline);
-        true
-    }
-
-    pub(crate) fn recompute_flags_and_width(&mut self) {
-        self.methods = ActiveOutlineMethods::None;
-        self.max_jfa_width = 0.0;
-
-        for outline in self.by_main_entity.values() {
-            self.methods = self.methods.with_outline_method(outline.mode);
-            if outline.mode == OutlineMethod::JumpFlood {
-                self.max_jfa_width = self.max_jfa_width.max(outline.width);
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub(crate) enum ActiveOutlineMethods {
-    #[default]
-    None,
-    JumpFloodOnly,
-    HullOnly,
-    JumpFloodAndHull,
-}
-
-impl ActiveOutlineMethods {
-    pub(crate) const fn has_jfa(self) -> bool {
-        matches!(self, Self::JumpFloodOnly | Self::JumpFloodAndHull)
-    }
-
-    pub(crate) const fn has_hull(self) -> bool {
-        matches!(self, Self::HullOnly | Self::JumpFloodAndHull)
-    }
-
-    pub(crate) const fn with_outline_method(self, method: OutlineMethod) -> Self {
-        let includes_jfa = self.has_jfa() || matches!(method, OutlineMethod::JumpFlood);
-        let includes_hull = self.has_hull()
-            || matches!(method, OutlineMethod::WorldHull | OutlineMethod::ScreenHull);
-
-        match (includes_jfa, includes_hull) {
-            (false, false) => Self::None,
-            (true, false) => Self::JumpFloodOnly,
-            (false, true) => Self::HullOnly,
-            (true, true) => Self::JumpFloodAndHull,
-        }
-    }
-}
+use crate::outline_builder::JumpFloodState;
+use crate::outline_builder::OutlineBuilder;
+use crate::outline_builder::ScreenHullState;
+use crate::outline_builder::WorldHullState;
 
 /// Marker component that prevents outline propagation to this entity.
 ///
@@ -171,19 +87,19 @@ impl Outline {
     /// Create a JFA outline builder. Width is in pixels.
     #[must_use]
     pub const fn jump_flood(width: f32) -> OutlineBuilder<JumpFloodState> {
-        super::outline_builder::OutlineBuilder::jump_flood(width)
+        OutlineBuilder::jump_flood(width)
     }
 
     /// Create a screen-space hull outline builder. Width is in pixels.
     #[must_use]
     pub const fn screen_hull(width: f32) -> OutlineBuilder<ScreenHullState> {
-        super::outline_builder::OutlineBuilder::screen_hull(width)
+        OutlineBuilder::screen_hull(width)
     }
 
     /// Create a world-space hull outline builder. Width is in world units.
     #[must_use]
     pub const fn world_hull(width: f32) -> OutlineBuilder<WorldHullState> {
-        super::outline_builder::OutlineBuilder::world_hull(width)
+        OutlineBuilder::world_hull(width)
     }
 }
 
@@ -265,70 +181,5 @@ impl OverlapMode {
             Self::Merged => 0.0,
             Self::Grouped | Self::PerMesh => 1.0,
         }
-    }
-}
-
-/// GPU-ready outline data extracted from the main world.
-#[derive(Debug, Reflect, Clone, PartialEq)]
-pub(crate) struct ExtractedOutline {
-    /// Color multiplier for HDR glow via bloom.
-    pub(crate) intensity: f32,
-    /// Outline width in pixels or world units depending on `mode`.
-    pub(crate) width:     f32,
-    /// Draw priority for ordering (reserved for future use).
-    pub(crate) priority:  f32,
-    /// Shader overlap factor derived from `OverlapMode`.
-    pub(crate) overlap:   f32,
-    /// Unique owner ID used for per-mesh and grouped overlap resolution.
-    pub(crate) owner_id:  f32,
-    /// Linear RGBA outline color as a `Vec4`.
-    pub(crate) color:     Vec4,
-    /// Which outline algorithm this entity uses.
-    pub(crate) mode:      OutlineMethod,
-}
-
-impl ExtractedOutline {
-    pub(crate) fn from_main_world(entity: Entity, outline: &Outline) -> Self {
-        let linear_color: LinearRgba = outline.color.into();
-        let owner_entity = match outline.overlap {
-            OverlapMode::Grouped => outline.group_source.unwrap_or(entity),
-            _ => entity,
-        };
-        Self {
-            intensity: outline.intensity,
-            width:     outline.width,
-            priority:  0.0,
-            overlap:   outline.overlap.as_shader_factor(),
-            owner_id:  owner_entity.index().index().to_f32() + OWNER_ID_OFFSET,
-            color:     linear_color.to_vec4(),
-            mode:      outline.mode,
-        }
-    }
-}
-
-/// Render graph label for the outline pass.
-#[derive(Copy, Clone, Debug, RenderLabel, Hash, PartialEq, Eq)]
-pub(crate) enum OutlineRenderGraphNode {
-    /// The main outline render node that runs mask, flood, hull, and compose sub-passes.
-    OutlineNode,
-}
-
-/// Ensures the main pass depth texture has `TEXTURE_BINDING` so the compose shader
-/// can sample it for correct occlusion of transmissive/transparent geometry.
-///
-/// Fires once when `OutlineCamera` is added, rather than polling every frame.
-///
-/// Needs to run in the main app because `Camera3d::depth_texture_usages` controls
-/// how the GPU texture is allocated — by the time extraction runs, it's too late.
-///
-/// See `bevy_pbr::atmosphere::configure_camera_depth_usages` for the same pattern in Bevy.
-pub(crate) fn configure_outline_camera_depth_texture(
-    added: On<Add, OutlineCamera>,
-    mut cameras: Query<&mut Camera3d>,
-) {
-    if let Ok(mut camera_3d) = cameras.get_mut(added.entity) {
-        let mut usages = TextureUsages::from(camera_3d.depth_texture_usages);
-        usages |= TextureUsages::TEXTURE_BINDING;
-        camera_3d.depth_texture_usages = usages.into();
     }
 }
