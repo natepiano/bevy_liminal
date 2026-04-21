@@ -21,19 +21,34 @@ pub(crate) struct ShaderPlugin;
 
 impl Plugin for ShaderPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, MASK_SHADER_HANDLE, "mask.wgsl", Shader::from_wgsl);
-        load_internal_asset!(app, FLOOD_SHADER_HANDLE, "flood.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            MASK_SHADER_HANDLE,
+            "shaders/mask.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            FLOOD_SHADER_HANDLE,
+            "shaders/flood.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(
             app,
             COMPOSE_SHADER_HANDLE,
-            "compose_output.wgsl",
+            "shaders/compose_output.wgsl",
             Shader::from_wgsl
         );
-        load_internal_asset!(app, HULL_SHADER_HANDLE, "hull.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            HULL_SHADER_HANDLE,
+            "shaders/hull.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(
             app,
             VIEW_HELPERS_SHADER_HANDLE,
-            "view_helpers.wgsl",
+            "shaders/view_helpers.wgsl",
             Shader::from_wgsl
         );
     }

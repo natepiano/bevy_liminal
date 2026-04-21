@@ -248,10 +248,10 @@ impl ScenarioResult {
 
 #[derive(Resource)]
 struct BenchmarkState {
-    mode:             BenchmarkMode,
+    benchmark_mode:   BenchmarkMode,
     current_scenario: usize,
     outline_presence: OutlinePresence,
-    outline_mode:     OutlineMethod,
+    outline_method:   OutlineMethod,
     phase:            BenchmarkPhase,
     frame_counter:    u32,
     frame_times:      Vec<f64>,
@@ -275,10 +275,10 @@ impl BenchmarkState {
         };
 
         Self {
-            mode,
+            benchmark_mode: mode,
             current_scenario: 0,
             outline_presence: OutlinePresence::Disabled,
-            outline_mode: OutlineMethod::default(),
+            outline_method: OutlineMethod::default(),
             phase,
             frame_counter: 0,
             frame_times: Vec::with_capacity(MEASURE_FRAMES.to_usize()),
@@ -295,21 +295,21 @@ impl BenchmarkState {
             OutlinePresence::Enabled => "on",
             OutlinePresence::Disabled => "off",
         };
-        let mode_label = outline_mode_label(self.outline_mode);
+        let mode_label = outline_method_label(self.outline_method);
         format!("{} {suffix} ({mode_label})", scenario.name)
     }
 }
 
-const fn outline_mode_label(mode: OutlineMethod) -> &'static str {
-    match mode {
+const fn outline_method_label(outline_method: OutlineMethod) -> &'static str {
+    match outline_method {
         OutlineMethod::JumpFlood => "JumpFlood",
         OutlineMethod::WorldHull => "WorldHull",
         OutlineMethod::ScreenHull => "ScreenHull",
     }
 }
 
-const fn next_outline_mode(mode: OutlineMethod) -> OutlineMethod {
-    match mode {
+const fn next_outline_method(outline_method: OutlineMethod) -> OutlineMethod {
+    match outline_method {
         OutlineMethod::JumpFlood => OutlineMethod::WorldHull,
         OutlineMethod::WorldHull => OutlineMethod::ScreenHull,
         OutlineMethod::ScreenHull => OutlineMethod::JumpFlood,
@@ -444,7 +444,7 @@ fn spawn_scenario(
     scenario: &ScenarioDefinition,
     viewport: &ViewportInfo,
     outline_presence: OutlinePresence,
-    outline_mode: OutlineMethod,
+    outline_method: OutlineMethod,
 ) {
     let ScenarioKind::Grid {
         count,
@@ -461,7 +461,7 @@ fn spawn_scenario(
             cube_fill,
             viewport,
             outline_presence,
-            outline_mode,
+            outline_method,
         },
     );
 }
@@ -471,8 +471,8 @@ fn random_outline_color() -> Color {
     Color::srgb(rng.random(), rng.random(), rng.random())
 }
 
-fn build_outline(width: f32, outline_mode: OutlineMethod) -> Outline {
-    match outline_mode {
+fn build_outline(width: f32, outline_method: OutlineMethod) -> Outline {
+    match outline_method {
         OutlineMethod::JumpFlood => Outline::jump_flood(width)
             .with_intensity(DEFAULT_OUTLINE_INTENSITY)
             .with_color(random_outline_color())
@@ -508,7 +508,7 @@ fn spawn_grid(
             cube_fill,
             viewport,
             outline_presence,
-            outline_mode,
+            outline_method,
         } = spec;
         // 2D grid
         let cols = count.to_f32().sqrt().ceil().to_u32();
@@ -535,7 +535,7 @@ fn spawn_grid(
                     BenchmarkEntity,
                 ));
                 if outline_presence == OutlinePresence::Enabled {
-                    entity.insert(build_outline(width, outline_mode));
+                    entity.insert(build_outline(width, outline_method));
                 }
                 spawned += 1;
             }
@@ -555,7 +555,7 @@ fn spawn_3d_grid(
         cube_fill,
         viewport,
         outline_presence,
-        outline_mode,
+        outline_method,
     } = spec;
     // 3D grid: 10x10 front face, depth layers as needed
     let cols: u32 = 10;
@@ -587,7 +587,7 @@ fn spawn_3d_grid(
                     BenchmarkEntity,
                 ));
                 if outline_presence == OutlinePresence::Enabled {
-                    entity.insert(build_outline(width, outline_mode));
+                    entity.insert(build_outline(width, outline_method));
                 }
                 spawned += 1;
             }
@@ -601,7 +601,7 @@ struct GridSpawnSpec<'a> {
     cube_fill:        f32,
     viewport:         &'a ViewportInfo,
     outline_presence: OutlinePresence,
-    outline_mode:     OutlineMethod,
+    outline_method:   OutlineMethod,
 }
 
 // --- Main Benchmark Tick ---
@@ -680,7 +680,7 @@ fn handle_setup_phase(params: &mut BenchmarkTickParams<'_, '_>) {
         scenario,
         &viewport,
         params.state.outline_presence,
-        params.state.outline_mode,
+        params.state.outline_method,
     );
 
     params.state.frame_counter = 0;
@@ -730,7 +730,7 @@ fn handle_analyze_phase(state: &mut BenchmarkState) {
         return;
     }
 
-    if state.mode == BenchmarkMode::Auto && state.current_scenario + 1 < SCENARIOS.len() {
+    if state.benchmark_mode == BenchmarkMode::Auto && state.current_scenario + 1 < SCENARIOS.len() {
         state.outline_presence = OutlinePresence::Disabled;
         state.current_scenario += 1;
         state.phase = BenchmarkPhase::Setup;
@@ -738,14 +738,14 @@ fn handle_analyze_phase(state: &mut BenchmarkState) {
     }
 
     state.outline_presence = OutlinePresence::Disabled;
-    if state.mode == BenchmarkMode::Auto {
+    if state.benchmark_mode == BenchmarkMode::Auto {
         write_results(&state.results);
         if state.exit_behavior == ExitBehavior::OnComplete {
             info!("Auto benchmark complete, exiting in {AUTO_EXIT_DELAY_SECS}s");
             state.phase = BenchmarkPhase::ExitDelay;
         } else {
             info!("Auto benchmark complete");
-            state.mode = BenchmarkMode::Interactive;
+            state.benchmark_mode = BenchmarkMode::Interactive;
             state.phase = BenchmarkPhase::Idle;
         }
     } else {
@@ -773,7 +773,7 @@ fn handle_input(input: Res<ButtonInput<KeyCode>>, mut state: ResMut<BenchmarkSta
     // Start an auto benchmark run
     if input.just_pressed(KeyCode::KeyR) {
         info!("Starting auto benchmark run");
-        state.mode = BenchmarkMode::Auto;
+        state.benchmark_mode = BenchmarkMode::Auto;
         state.current_scenario = 0;
         state.outline_presence = OutlinePresence::Disabled;
         state.results.clear();
@@ -783,10 +783,10 @@ fn handle_input(input: Res<ButtonInput<KeyCode>>, mut state: ResMut<BenchmarkSta
 
     // Cycle outline mode
     if input.just_pressed(KeyCode::KeyM) {
-        let new_mode = next_outline_mode(state.outline_mode);
-        info!("Outline mode: {}", outline_mode_label(new_mode));
-        state.outline_mode = new_mode;
-        state.mode = BenchmarkMode::Interactive;
+        let new_outline_method = next_outline_method(state.outline_method);
+        info!("Outline mode: {}", outline_method_label(new_outline_method));
+        state.outline_method = new_outline_method;
+        state.benchmark_mode = BenchmarkMode::Interactive;
         state.outline_presence = OutlinePresence::Disabled;
         state.phase = BenchmarkPhase::Setup;
         return;
@@ -796,7 +796,7 @@ fn handle_input(input: Res<ButtonInput<KeyCode>>, mut state: ResMut<BenchmarkSta
     for (idx, scenario) in SCENARIOS.iter().enumerate() {
         if input.just_pressed(scenario.key) {
             info!("Switching to scenario: {}", scenario.name);
-            state.mode = BenchmarkMode::Interactive;
+            state.benchmark_mode = BenchmarkMode::Interactive;
             state.current_scenario = idx;
             state.outline_presence = OutlinePresence::Disabled;
             state.phase = BenchmarkPhase::Setup;
@@ -843,23 +843,23 @@ struct LiveMetrics {
 
 fn build_hud_text(state: &BenchmarkState, diagnostics: &DiagnosticsStore) -> String {
     let scenario = &SCENARIOS[state.current_scenario];
-    let mode_label = benchmark_mode_label(&state.mode);
+    let mode_label = benchmark_mode_label(&state.benchmark_mode);
     let phase_info = benchmark_phase_label(state);
     let progress = auto_progress_label(state);
     let col = results_label_width();
-    let outline_mode_name = outline_mode_label(state.outline_mode);
+    let outline_method_name = outline_method_label(state.outline_method);
     let live_metrics = live_metrics(diagnostics);
     let bench_stats = benchmark_stats_line(state.frame_times.as_slice(), col);
 
     let mut hud = format!(
-        "[{mode_label}] {}{progress}  Mode: {outline_mode_name}\n{phase_info}\n\n{:<col$}FPS: {fps:<4.0}  Frame: {frame_time:.2}ms{bench_stats}",
+        "[{mode_label}] {}{progress}  Mode: {outline_method_name}\n{phase_info}\n\n{:<col$}FPS: {fps:<4.0}  Frame: {frame_time:.2}ms{bench_stats}",
         scenario.name,
         "Bevy:",
         fps = live_metrics.fps,
         frame_time = live_metrics.frame_time,
     );
 
-    append_results_section(&mut hud, state, col, outline_mode_name);
+    append_results_section(&mut hud, state, col, outline_method_name);
     hud.push_str("\n\n#: Switch scenario  M: Cycle mode  R: Auto run  L: Log results");
     hud
 }
@@ -894,7 +894,7 @@ fn benchmark_phase_label(state: &BenchmarkState) -> String {
 }
 
 fn auto_progress_label(state: &BenchmarkState) -> String {
-    if state.mode == BenchmarkMode::Auto {
+    if state.benchmark_mode == BenchmarkMode::Auto {
         format!(" ({}/{})", state.current_scenario + 1, SCENARIOS.len())
     } else {
         String::new()
@@ -940,11 +940,11 @@ fn append_results_section(
     hud: &mut String,
     state: &BenchmarkState,
     col: usize,
-    outline_mode_name: &str,
+    outline_method_name: &str,
 ) {
     hud.push_str("\n\n--- Results ---");
     for scenario in SCENARIOS {
-        append_scenario_results(hud, state, scenario, col, outline_mode_name);
+        append_scenario_results(hud, state, scenario, col, outline_method_name);
     }
 }
 
@@ -953,11 +953,11 @@ fn append_scenario_results(
     state: &BenchmarkState,
     scenario: &ScenarioDefinition,
     col: usize,
-    outline_mode_name: &str,
+    outline_method_name: &str,
 ) {
     let key_char = key_to_char(scenario.key);
     for (index, suffix) in ["off", "on"].iter().enumerate() {
-        let result_name = format!("{} {suffix} ({outline_mode_name})", scenario.name);
+        let result_name = format!("{} {suffix} ({outline_method_name})", scenario.name);
         let label = if index == 0 {
             format!("{key_char} {result_name}:")
         } else {

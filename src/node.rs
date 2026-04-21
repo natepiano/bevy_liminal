@@ -32,6 +32,7 @@ use super::constants::JFA_NO_SEED_CLEAR_COLOR;
 use super::extract::ActiveOutlineModes;
 use super::flood::FloodSettings;
 use super::flood::JumpFloodPass;
+use super::flood::JumpFloodStep;
 use super::hull_pipeline::DynamicRange;
 use super::mask::HullOutlinePhase;
 use super::mask::JfaOutlinePhase;
@@ -110,23 +111,27 @@ impl ViewNode for OutlineNode {
 
         run_mask_init_pass(
             render_context,
-            &flood_textures,
-            &outline_depth_view,
-            camera,
-            outline_phase,
-            world,
-            view_entity,
+            MaskInitPassContext {
+                flood_textures: &flood_textures,
+                outline_depth_view: &outline_depth_view,
+                camera,
+                outline_phase,
+                world,
+                view_entity,
+            },
         );
 
         if let Some(hull_phase) = hull_phase {
             run_hull_pass(
                 render_context,
-                view_target,
-                view_depth_texture,
-                camera,
-                hull_phase,
-                world,
-                view_entity,
+                HullPassContext {
+                    view_target,
+                    view_depth_texture,
+                    camera,
+                    hull_phase,
+                    world,
+                    view_entity,
+                },
             );
         }
 
@@ -149,15 +154,24 @@ impl ViewNode for OutlineNode {
     }
 }
 
-fn run_mask_init_pass(
-    render_context: &mut RenderContext<'_>,
-    flood_textures: &FloodTextures,
-    outline_depth_view: &TextureView,
-    camera: &ExtractedCamera,
-    outline_phase: Option<&BinnedRenderPhase<JfaOutlinePhase>>,
-    world: &World,
-    view_entity: Entity,
-) {
+struct MaskInitPassContext<'a> {
+    flood_textures:     &'a FloodTextures,
+    outline_depth_view: &'a TextureView,
+    camera:             &'a ExtractedCamera,
+    outline_phase:      Option<&'a BinnedRenderPhase<JfaOutlinePhase>>,
+    world:              &'a World,
+    view_entity:        Entity,
+}
+
+fn run_mask_init_pass(render_context: &mut RenderContext<'_>, ctx: MaskInitPassContext<'_>) {
+    let MaskInitPassContext {
+        flood_textures,
+        outline_depth_view,
+        camera,
+        outline_phase,
+        world,
+        view_entity,
+    } = ctx;
     let flood_color_attachment = RenderPassColorAttachment {
         view:           &flood_textures.output.default_view,
         resolve_target: None,
@@ -225,15 +239,24 @@ fn run_mask_init_pass(
     }
 }
 
-fn run_hull_pass(
-    render_context: &mut RenderContext<'_>,
-    view_target: &ViewTarget,
-    view_depth_texture: &ViewDepthTexture,
-    camera: &ExtractedCamera,
-    hull_phase: &BinnedRenderPhase<HullOutlinePhase>,
-    world: &World,
-    view_entity: Entity,
-) {
+struct HullPassContext<'a> {
+    view_target:        &'a ViewTarget,
+    view_depth_texture: &'a ViewDepthTexture,
+    camera:             &'a ExtractedCamera,
+    hull_phase:         &'a BinnedRenderPhase<HullOutlinePhase>,
+    world:              &'a World,
+    view_entity:        Entity,
+}
+
+fn run_hull_pass(render_context: &mut RenderContext<'_>, ctx: HullPassContext<'_>) {
+    let HullPassContext {
+        view_target,
+        view_depth_texture,
+        camera,
+        hull_phase,
+        world,
+        view_entity,
+    } = ctx;
     let mut hull_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
         label:                    Some("hull_outline_pass"),
         color_attachments:        &[Some(view_target.get_color_attachment())],
@@ -295,7 +318,7 @@ fn run_jfa_composite(
 
     let pipeline_cache = world.resource::<PipelineCache>();
 
-    let sample_mode = SampleMode::from_msaa(msaa);
+    let sample_mode = SampleMode::from(msaa);
     let dynamic_range = DynamicRange::from_hdr(view_target.is_hdr());
     let variant = ComposeVariant::new(sample_mode, dynamic_range);
     let pipeline_id = compose_pipeline.pipeline_id(variant);
@@ -320,11 +343,13 @@ fn run_jfa_composite(
         flood_textures.swap_ping_pong();
         jump_flood_pass.execute(
             render_context,
-            flood_textures.input(),
-            flood_textures.output(),
-            outline_depth_view,
-            &flood_textures.appearance_texture.default_view,
-            size,
+            JumpFloodStep {
+                input: flood_textures.input(),
+                output: flood_textures.output(),
+                depth_texture: outline_depth_view,
+                appearance_texture: &flood_textures.appearance_texture.default_view,
+                size,
+            },
         );
     }
 

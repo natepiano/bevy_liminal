@@ -146,6 +146,14 @@ pub(crate) struct JumpFloodPass<'w> {
     pipeline_cache:      &'w PipelineCache,
 }
 
+pub(crate) struct JumpFloodStep<'a> {
+    pub(crate) input:              &'a CachedTexture,
+    pub(crate) output:             &'a CachedTexture,
+    pub(crate) depth_texture:      &'a TextureView,
+    pub(crate) appearance_texture: &'a TextureView,
+    pub(crate) size:               u32,
+}
+
 impl<'w> JumpFloodPass<'w> {
     pub(crate) fn new(world: &'w World) -> Option<Self> {
         let pipeline = world.resource::<JumpFloodPipeline>();
@@ -159,15 +167,14 @@ impl<'w> JumpFloodPass<'w> {
         })
     }
 
-    pub(crate) fn execute(
-        &self,
-        render_context: &mut RenderContext<'_>,
-        input: &CachedTexture,
-        output: &CachedTexture,
-        depth_texture: &TextureView,
-        appearance_texture: &TextureView,
-        size: u32,
-    ) {
+    pub(crate) fn execute(&self, render_context: &mut RenderContext<'_>, step: JumpFloodStep<'_>) {
+        let JumpFloodStep {
+            input,
+            output,
+            depth_texture,
+            appearance_texture,
+            size,
+        } = step;
         let Some(lookup_binding) = self.pipeline.lookup_buffer.binding() else {
             return;
         };

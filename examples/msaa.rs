@@ -17,6 +17,31 @@ use bevy_liminal::LiminalPlugin;
 use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
 
+// Animation
+const ROTATION_X_SPEED: f32 = 1.0 / 3.0;
+const ROTATION_Y_SPEED: f32 = 1.0 / 6.0;
+
+// Camera
+const CAMERA_FOCUS: Vec3 = Vec3::new(0.0, 1.0, 0.0);
+const CAMERA_POSITION: Vec3 = Vec3::new(3.0, 2.0, 3.0);
+
+// Lighting
+const LIGHT_INTENSITY: f32 = 10_000_000.0;
+const LIGHT_POSITION: Vec3 = Vec3::new(8.0, 16.0, 8.0);
+const LIGHT_RANGE: f32 = 100.0;
+const LIGHT_SHADOW_DEPTH_BIAS: f32 = 0.2;
+
+// Scene
+const GROUND_SIZE: f32 = 50.0;
+const GROUND_SUBDIVISIONS: u32 = 10;
+const INITIAL_MSAA: Msaa = Msaa::Sample4;
+const INITIAL_OUTLINE_WIDTH: f32 = 10.0;
+const OUTLINED_CUBE_POSITION: Vec3 = Vec3::new(0.0, 1.0, 0.0);
+
+// UI
+const UI_FONT_SIZE: f32 = 16.0;
+const UI_PADDING: f32 = 10.0;
+
 fn main() {
     App::new()
         .add_plugins((
@@ -30,7 +55,6 @@ fn main() {
             (
                 rotate,
                 switch_anti_aliasing.run_if(on_message::<KeyboardInput>),
-                update_msaa_display,
             ),
         )
         .run();
@@ -48,11 +72,33 @@ type OutlineCameraAaQuery = (
     Option<&'static Smaa>,
     Option<&'static TemporalAntiAliasing>,
 );
-type OutlineCameraAaState = (
-    &'static Msaa,
-    Option<&'static Smaa>,
-    Option<&'static TemporalAntiAliasing>,
-);
+
+#[derive(Clone, Copy)]
+enum PostAntiAliasing {
+    None,
+    Smaa,
+    Taa,
+}
+
+impl PostAntiAliasing {
+    const fn label(self) -> &'static str {
+        match self {
+            Self::None => "None",
+            Self::Smaa => "SMAA",
+            Self::Taa => "TAA",
+        }
+    }
+
+    const fn from_components(smaa: Option<&Smaa>, taa: Option<&TemporalAntiAliasing>) -> Self {
+        match (smaa.is_some(), taa.is_some()) {
+            (false, false) => Self::None,
+            (true, false) => Self::Smaa,
+            // `(true, true)` cannot arise — the S/T key handlers keep SMAA and
+            // TAA mutually exclusive.
+            (false, true) | (true, true) => Self::Taa,
+        }
+    }
+}
 
 fn setup(
     mut commands: Commands,
@@ -61,7 +107,7 @@ fn setup(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(3.0, 2., 3.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        Transform::from_translation(CAMERA_POSITION).looking_at(CAMERA_FOCUS, Vec3::Y),
         OrbitCam {
             button_orbit: MouseButton::Middle,
             button_pan: MouseButton::Middle,
@@ -78,32 +124,39 @@ fn setup(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            intensity: 10_000_000.,
-            range: 100.0,
-            shadow_depth_bias: 0.2,
+            intensity: LIGHT_INTENSITY,
+            range: LIGHT_RANGE,
+            shadow_depth_bias: LIGHT_SHADOW_DEPTH_BIAS,
             ..default()
         },
-        Transform::from_xyz(8.0, 16.0, 8.0),
+        Transform::from_translation(LIGHT_POSITION),
     ));
 
     // ground plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10))),
+        Mesh3d(
+            meshes.add(
+                Plane3d::default()
+                    .mesh()
+                    .size(GROUND_SIZE, GROUND_SIZE)
+                    .subdivisions(GROUND_SUBDIVISIONS),
+            ),
+        ),
         MeshMaterial3d(materials.add(Color::from(SILVER))),
     ));
 
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::from(YELLOW))),
-        Transform::from_xyz(0.0, 1.0, 0.0),
-        Outline::jump_flood(10.0).build(),
+        Transform::from_translation(OUTLINED_CUBE_POSITION),
+        Outline::jump_flood(INITIAL_OUTLINE_WIDTH).build(),
     ));
 }
 
 fn rotate(mut query: Query<&mut Transform, With<Outline>>, time: Res<Time>) {
     for mut transform in &mut query {
-        let rotation = Quat::from_rotation_y(time.delta_secs() / 6.)
-            * Quat::from_rotation_x(time.delta_secs() / 3.0);
+        let rotation = Quat::from_rotation_y(time.delta_secs() * ROTATION_Y_SPEED)
+            * Quat::from_rotation_x(time.delta_secs() * ROTATION_X_SPEED);
 
         transform.rotation *= rotation;
     }
@@ -113,56 +166,78 @@ fn switch_anti_aliasing(
     input: Res<ButtonInput<KeyCode>>,
     camera: Single<OutlineCameraAaQuery, With<OutlineCamera>>,
     mut commands: Commands,
+    mut text_query: Single<&mut Text, With<MsaaText>>,
 ) {
     let (camera_entity, mut msaa, smaa, taa) = camera.into_inner();
     let mut camera_commands = commands.entity(camera_entity);
+    let mut post_anti_aliasing = PostAntiAliasing::from_components(smaa, taa);
+    let mut state_changed = false;
 
-    if input.just_pressed(KeyCode::Digit1) {
-        *msaa = Msaa::Off;
-    } else if input.just_pressed(KeyCode::Digit2) {
-        if taa.is_some() {
+    // Note: Sample8 is not supported on all hardware (e.g. Apple Silicon only
+    // supports [1, 2, 4]).
+    const MSAA_KEYS: [(KeyCode, Msaa); 4] = [
+        (KeyCode::Digit1, Msaa::Off),
+        (KeyCode::Digit2, Msaa::Sample2),
+        (KeyCode::Digit3, Msaa::Sample4),
+        (KeyCode::Digit4, Msaa::Sample8),
+    ];
+
+    if let Some(&(_, new_msaa)) = MSAA_KEYS.iter().find(|(k, _)| input.just_pressed(*k)) {
+        // TAA requires MSAA off; enabling any MSAA sample count drops it.
+        if new_msaa != Msaa::Off && matches!(post_anti_aliasing, PostAntiAliasing::Taa) {
             camera_commands.remove::<TaaComponents>();
+            post_anti_aliasing = PostAntiAliasing::None;
         }
-        *msaa = Msaa::Sample2;
-    } else if input.just_pressed(KeyCode::Digit3) {
-        if taa.is_some() {
-            camera_commands.remove::<TaaComponents>();
-        }
-        *msaa = Msaa::Sample4;
-    } else if input.just_pressed(KeyCode::Digit4) {
-        // Note: Sample8 is not supported on all hardware (e.g. Apple Silicon only supports [1, 2,
-        // 4])
-        if taa.is_some() {
-            camera_commands.remove::<TaaComponents>();
-        }
-        *msaa = Msaa::Sample8;
+        *msaa = new_msaa;
+        state_changed = true;
     }
 
     if input.just_pressed(KeyCode::KeyS) {
-        if smaa.is_some() {
-            camera_commands.remove::<Smaa>();
-        } else {
-            if taa.is_some() {
-                camera_commands.remove::<TaaComponents>();
-            }
-            camera_commands.insert(Smaa::default());
+        match post_anti_aliasing {
+            PostAntiAliasing::None => {
+                camera_commands.insert(Smaa::default());
+                post_anti_aliasing = PostAntiAliasing::Smaa;
+            },
+            PostAntiAliasing::Smaa => {
+                camera_commands.remove::<Smaa>();
+                post_anti_aliasing = PostAntiAliasing::None;
+            },
+            PostAntiAliasing::Taa => {
+                camera_commands
+                    .remove::<TaaComponents>()
+                    .insert(Smaa::default());
+                post_anti_aliasing = PostAntiAliasing::Smaa;
+            },
         }
+        state_changed = true;
     }
 
     if input.just_pressed(KeyCode::KeyT) {
-        if taa.is_some() {
-            camera_commands.remove::<TaaComponents>();
-        } else {
-            // TAA requires motion vectors and should run with MSAA disabled.
-            *msaa = Msaa::Off;
-            camera_commands.remove::<Smaa>().insert((
-                TemporalAntiAliasing::default(),
-                TemporalJitter::default(),
-                MipBias::default(),
-                MotionVectorPrepass,
-            ));
+        match post_anti_aliasing {
+            PostAntiAliasing::Taa => {
+                camera_commands.remove::<TaaComponents>();
+                post_anti_aliasing = PostAntiAliasing::None;
+            },
+            PostAntiAliasing::None | PostAntiAliasing::Smaa => {
+                // TAA requires motion vectors and should run with MSAA disabled.
+                *msaa = Msaa::Off;
+                camera_commands.remove::<Smaa>().insert((
+                    TemporalAntiAliasing::default(),
+                    TemporalJitter::default(),
+                    MipBias::default(),
+                    MotionVectorPrepass,
+                ));
+                post_anti_aliasing = PostAntiAliasing::Taa;
+            },
         }
+        state_changed = true;
     }
+
+    if !state_changed {
+        return;
+    }
+
+    text_query.0 = build_msaa_text(msaa_label(*msaa), post_anti_aliasing);
 }
 
 #[derive(Component)]
@@ -170,41 +245,37 @@ struct MsaaText;
 
 fn setup_ui(mut commands: Commands) {
     commands.spawn((
-        Text::new("MSAA:\n1: Off\n2: 2x\n3: 4x (default)\n4: 8x\n\nPost AA:\nS: Toggle SMAA\nT: Toggle TAA"),
+        Text::new(build_msaa_text(
+            msaa_label(INITIAL_MSAA),
+            PostAntiAliasing::None,
+        )),
         TextFont {
-            font_size: 16.0,
+            font_size: UI_FONT_SIZE,
             ..default()
         },
         TextColor(Color::WHITE),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            right: Val::Px(10.0),
+            top: Val::Px(UI_PADDING),
+            right: Val::Px(UI_PADDING),
             ..default()
         },
         MsaaText,
     ));
 }
 
-fn update_msaa_display(
-    camera: Single<OutlineCameraAaState, With<OutlineCamera>>,
-    mut text_query: Single<&mut Text, With<MsaaText>>,
-) {
-    let (msaa, smaa, taa) = *camera;
-    let current_msaa = match *msaa {
+const fn msaa_label(msaa: Msaa) -> &'static str {
+    match msaa {
         Msaa::Off => "Off",
         Msaa::Sample2 => "2x",
         Msaa::Sample4 => "4x",
         Msaa::Sample8 => "8x",
-    };
-    let current_post_aa = if taa.is_some() {
-        "TAA"
-    } else if smaa.is_some() {
-        "SMAA"
-    } else {
-        "None"
-    };
-    text_query.0 = format!(
-        "MSAA:\n1: Off\n2: 2x\n3: 4x (default)\n4: 8x\n\nPost AA:\nS: Toggle SMAA\nT: Toggle TAA\n\nCurrent MSAA: {current_msaa}\nCurrent Post AA: {current_post_aa}"
-    );
+    }
+}
+
+fn build_msaa_text(current_msaa: &str, post_anti_aliasing: PostAntiAliasing) -> String {
+    let current_post_anti_aliasing = post_anti_aliasing.label();
+    format!(
+        "MSAA:\n1: Off\n2: 2x\n3: 4x (default)\n4: 8x\n\nPost AA:\nS: Toggle SMAA\nT: Toggle TAA\n\nCurrent MSAA: {current_msaa}\nCurrent Post AA: {current_post_anti_aliasing}"
+    )
 }

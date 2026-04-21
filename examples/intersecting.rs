@@ -17,6 +17,26 @@ use bevy_liminal::LiminalPlugin;
 use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
 
+// Camera
+const CAMERA_FOCUS: Vec3 = Vec3::new(0.0, 1.0, 0.0);
+const CAMERA_POSITION: Vec3 = Vec3::new(1.5, 1.0, 1.5);
+
+// Lighting
+const LIGHT_INTENSITY: f32 = 10_000_000.0;
+const LIGHT_POSITION: Vec3 = Vec3::new(8.0, 16.0, 8.0);
+const LIGHT_RANGE: f32 = 100.0;
+const LIGHT_SHADOW_DEPTH_BIAS: f32 = 0.2;
+
+// Scene
+const CUBE_POSITION: Vec3 = Vec3::new(0.0, 1.0, 0.0);
+const CUBE_ROTATION_X: f32 = PI / 5.0;
+const CUBE_ROTATION_Y: f32 = PI / 3.0;
+const GROUND_SIZE: f32 = 50.0;
+const GROUND_SUBDIVISIONS: u32 = 10;
+const OUTLINE_WIDTH: f32 = 10.0;
+const SPHERE_OUTLINE_INTENSITY: f32 = 10.0;
+const SPHERE_POSITION: Vec3 = Vec3::new(-0.5, 1.0, 0.5);
+
 fn main() {
     App::new()
         .add_plugins((
@@ -35,7 +55,7 @@ fn setup(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(1.5, 1., 1.5).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        Transform::from_translation(CAMERA_POSITION).looking_at(CAMERA_FOCUS, Vec3::Y),
         OrbitCam {
             button_orbit: MouseButton::Middle,
             button_pan: MouseButton::Middle,
@@ -54,17 +74,24 @@ fn setup(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            intensity: 10_000_000.,
-            range: 100.0,
-            shadow_depth_bias: 0.2,
+            intensity: LIGHT_INTENSITY,
+            range: LIGHT_RANGE,
+            shadow_depth_bias: LIGHT_SHADOW_DEPTH_BIAS,
             ..default()
         },
-        Transform::from_xyz(8.0, 16.0, 8.0),
+        Transform::from_translation(LIGHT_POSITION),
     ));
 
     // ground plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10))),
+        Mesh3d(
+            meshes.add(
+                Plane3d::default()
+                    .mesh()
+                    .size(GROUND_SIZE, GROUND_SIZE)
+                    .subdivisions(GROUND_SUBDIVISIONS),
+            ),
+        ),
         MeshMaterial3d(materials.add(Color::from(SILVER))),
     ));
 
@@ -72,9 +99,10 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::from(YELLOW))),
-        Transform::from_xyz(0.0, 1.0, 0.0)
-            .with_rotation(Quat::from_rotation_x(PI / 5.0) * Quat::from_rotation_y(PI / 3.0)),
-        Outline::jump_flood(10.0)
+        Transform::from_translation(CUBE_POSITION).with_rotation(
+            Quat::from_rotation_x(CUBE_ROTATION_X) * Quat::from_rotation_y(CUBE_ROTATION_Y),
+        ),
+        Outline::jump_flood(OUTLINE_WIDTH)
             .with_color(Color::from(RED))
             .build(),
     ));
@@ -83,10 +111,10 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Sphere::default())),
         MeshMaterial3d(materials.add(Color::from(BLUE))),
-        Transform::from_xyz(-0.5, 1.0, 0.5),
-        Outline::jump_flood(10.0)
+        Transform::from_translation(SPHERE_POSITION),
+        Outline::jump_flood(OUTLINE_WIDTH)
             .with_color(Color::from(GREEN))
-            .with_intensity(10.0)
+            .with_intensity(SPHERE_OUTLINE_INTENSITY)
             .build(),
     ));
 }

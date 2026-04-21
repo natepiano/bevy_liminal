@@ -27,8 +27,8 @@ pub(crate) enum SampleMode {
     MultiSample,
 }
 
-impl SampleMode {
-    pub(crate) fn from_msaa(msaa: Msaa) -> Self {
+impl From<Msaa> for SampleMode {
+    fn from(msaa: Msaa) -> Self {
         if msaa.samples() > 1 {
             Self::MultiSample
         } else {

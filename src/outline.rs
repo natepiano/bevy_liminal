@@ -3,10 +3,10 @@ use bevy::prelude::*;
 use bevy::render::render_resource::TextureUsages;
 use bevy_render::extract_component::ExtractComponent;
 
-use crate::outline_builder::JumpFloodState;
-use crate::outline_builder::OutlineBuilder;
-use crate::outline_builder::ScreenHullState;
-use crate::outline_builder::WorldHullState;
+use super::outline_builder::JumpFloodState;
+use super::outline_builder::OutlineBuilder;
+use super::outline_builder::ScreenHullState;
+use super::outline_builder::WorldHullState;
 
 /// Marker component that prevents outline propagation to this entity.
 ///

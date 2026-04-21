@@ -14,6 +14,28 @@ use bevy_liminal::Outline;
 use bevy_liminal::OutlineCamera;
 use bevy_render::view::Hdr;
 
+// Animation
+const ROTATION_X_SPEED: f32 = 1.0;
+const ROTATION_Y_SPEED: f32 = 0.5;
+
+// Camera
+const CAMERA_FOCUS: Vec3 = Vec3::new(0.0, 1.0, 0.0);
+const CAMERA_POSITION: Vec3 = Vec3::new(3.0, 2.0, 3.0);
+
+// Lighting
+const LIGHT_INTENSITY: f32 = 10_000_000.0;
+const LIGHT_POSITION: Vec3 = Vec3::new(8.0, 16.0, 8.0);
+const LIGHT_RANGE: f32 = 100.0;
+const LIGHT_SHADOW_DEPTH_BIAS: f32 = 0.2;
+
+// Scene
+const GROUND_SIZE: f32 = 50.0;
+const GROUND_SUBDIVISIONS: u32 = 10;
+const INITIAL_OUTLINE_WIDTH: f32 = 10.0;
+const OUTLINED_CUBE_POSITION: Vec3 = Vec3::new(0.0, 1.0, 0.0);
+const OUTLINE_GLOW_INTENSITY: f32 = 20.0;
+const OUTLINE_GLOW_PERIOD: f32 = 0.2;
+
 fn main() {
     App::new()
         .add_plugins((
@@ -39,7 +61,7 @@ fn setup(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(3.0, 2., 3.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        Transform::from_translation(CAMERA_POSITION).looking_at(CAMERA_FOCUS, Vec3::Y),
         OrbitCam {
             button_orbit: MouseButton::Middle,
             button_pan: MouseButton::Middle,
@@ -59,39 +81,46 @@ fn setup(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            intensity: 10_000_000.,
-            range: 100.0,
-            shadow_depth_bias: 0.2,
+            intensity: LIGHT_INTENSITY,
+            range: LIGHT_RANGE,
+            shadow_depth_bias: LIGHT_SHADOW_DEPTH_BIAS,
             ..default()
         },
-        Transform::from_xyz(8.0, 16.0, 8.0),
+        Transform::from_translation(LIGHT_POSITION),
     ));
 
     // ground plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10))),
+        Mesh3d(
+            meshes.add(
+                Plane3d::default()
+                    .mesh()
+                    .size(GROUND_SIZE, GROUND_SIZE)
+                    .subdivisions(GROUND_SUBDIVISIONS),
+            ),
+        ),
         MeshMaterial3d(materials.add(Color::from(SILVER))),
     ));
 
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::from(BLUE))),
-        Transform::from_xyz(0.0, 1.0, 0.0),
+        Transform::from_translation(OUTLINED_CUBE_POSITION),
         // Add outline
-        Outline::jump_flood(10.0)
+        Outline::jump_flood(INITIAL_OUTLINE_WIDTH)
             .with_color(Color::from(RED))
             .build(),
         OutlineGlow {
-            intensity: 20.0,
-            period:    0.2,
+            intensity: OUTLINE_GLOW_INTENSITY,
+            period:    OUTLINE_GLOW_PERIOD,
         },
     ));
 }
 
 fn rotate(mut query: Query<&mut Transform, With<Outline>>, time: Res<Time>) {
     for mut transform in &mut query {
-        let rotation = Quat::from_rotation_y(time.delta_secs() / 2.)
-            * Quat::from_rotation_x(time.delta_secs());
+        let rotation = Quat::from_rotation_y(time.delta_secs() * ROTATION_Y_SPEED)
+            * Quat::from_rotation_x(time.delta_secs() * ROTATION_X_SPEED);
 
         transform.rotation *= rotation;
     }
