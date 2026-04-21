@@ -25,6 +25,16 @@ const ROTATION_Y_SPEED: f32 = 1.0 / 6.0;
 const CAMERA_FOCUS: Vec3 = Vec3::new(0.0, 1.0, 0.0);
 const CAMERA_POSITION: Vec3 = Vec3::new(3.0, 2.0, 3.0);
 
+// Input
+// Note: Sample8 is not supported on all hardware (e.g. Apple Silicon only
+// supports [1, 2, 4]).
+const MSAA_KEYS: [(KeyCode, Msaa); 4] = [
+    (KeyCode::Digit1, Msaa::Off),
+    (KeyCode::Digit2, Msaa::Sample2),
+    (KeyCode::Digit3, Msaa::Sample4),
+    (KeyCode::Digit4, Msaa::Sample8),
+];
+
 // Lighting
 const LIGHT_INTENSITY: f32 = 10_000_000.0;
 const LIGHT_POSITION: Vec3 = Vec3::new(8.0, 16.0, 8.0);
@@ -95,7 +105,7 @@ impl PostAntiAliasing {
             (true, false) => Self::Smaa,
             // `(true, true)` cannot arise — the S/T key handlers keep SMAA and
             // TAA mutually exclusive.
-            (false, true) | (true, true) => Self::Taa,
+            (false | true, true) => Self::Taa,
         }
     }
 }
@@ -171,16 +181,6 @@ fn switch_anti_aliasing(
     let (camera_entity, mut msaa, smaa, taa) = camera.into_inner();
     let mut camera_commands = commands.entity(camera_entity);
     let mut post_anti_aliasing = PostAntiAliasing::from_components(smaa, taa);
-    let mut state_changed = false;
-
-    // Note: Sample8 is not supported on all hardware (e.g. Apple Silicon only
-    // supports [1, 2, 4]).
-    const MSAA_KEYS: [(KeyCode, Msaa); 4] = [
-        (KeyCode::Digit1, Msaa::Off),
-        (KeyCode::Digit2, Msaa::Sample2),
-        (KeyCode::Digit3, Msaa::Sample4),
-        (KeyCode::Digit4, Msaa::Sample8),
-    ];
 
     if let Some(&(_, new_msaa)) = MSAA_KEYS.iter().find(|(k, _)| input.just_pressed(*k)) {
         // TAA requires MSAA off; enabling any MSAA sample count drops it.
@@ -189,7 +189,6 @@ fn switch_anti_aliasing(
             post_anti_aliasing = PostAntiAliasing::None;
         }
         *msaa = new_msaa;
-        state_changed = true;
     }
 
     if input.just_pressed(KeyCode::KeyS) {
@@ -209,7 +208,6 @@ fn switch_anti_aliasing(
                 post_anti_aliasing = PostAntiAliasing::Smaa;
             },
         }
-        state_changed = true;
     }
 
     if input.just_pressed(KeyCode::KeyT) {
@@ -230,14 +228,14 @@ fn switch_anti_aliasing(
                 post_anti_aliasing = PostAntiAliasing::Taa;
             },
         }
-        state_changed = true;
     }
 
-    if !state_changed {
-        return;
+    let any_relevant_key = input.just_pressed(KeyCode::KeyS)
+        || input.just_pressed(KeyCode::KeyT)
+        || MSAA_KEYS.iter().any(|(k, _)| input.just_pressed(*k));
+    if any_relevant_key {
+        text_query.0 = build_msaa_text(msaa_label(*msaa), post_anti_aliasing);
     }
-
-    text_query.0 = build_msaa_text(msaa_label(*msaa), post_anti_aliasing);
 }
 
 #[derive(Component)]
