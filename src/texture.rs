@@ -11,8 +11,8 @@ use bevy_render::renderer::RenderDevice;
 use bevy_render::texture::CachedTexture;
 use bevy_render::texture::TextureCache;
 
+use super::camera::OutlineCamera;
 use super::extract::ActiveOutlineModes;
-use super::outline::OutlineCamera;
 
 #[derive(Clone, Component)]
 pub(crate) struct FloodTextures {

@@ -117,8 +117,8 @@ fn setup(
     ));
 }
 
-fn rotate(mut query: Query<&mut Transform, With<Outline>>, time: Res<Time>) {
-    for mut transform in &mut query {
+fn rotate(mut outline_query: Query<&mut Transform, With<Outline>>, time: Res<Time>) {
+    for mut transform in &mut outline_query {
         let rotation = Quat::from_rotation_y(time.delta_secs() * ROTATION_Y_SPEED)
             * Quat::from_rotation_x(time.delta_secs() * ROTATION_X_SPEED);
 
@@ -126,8 +126,11 @@ fn rotate(mut query: Query<&mut Transform, With<Outline>>, time: Res<Time>) {
     }
 }
 
-fn oscillate_intensity(mut query: Query<(&mut Outline, &OutlineGlow)>, time: Res<Time>) {
-    for (mut outline, glow) in &mut query {
+fn oscillate_intensity(
+    mut outline_glow_query: Query<(&mut Outline, &OutlineGlow)>,
+    time: Res<Time>,
+) {
+    for (mut outline, glow) in &mut outline_glow_query {
         let t = (time.elapsed_secs() / glow.period).sin().mul_add(0.5, 0.5); // Normalize to [0, 1]
 
         outline.intensity = glow.intensity * t;

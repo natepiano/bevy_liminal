@@ -32,8 +32,8 @@ use bevy::render::texture::CachedTexture;
 use bevy_kana::ToUsize;
 use bevy_render::render_resource::TextureView;
 
+use super::camera::OutlineCamera;
 use super::extract::ExtractedOutlineUniforms;
-use super::outline::OutlineCamera;
 use super::shaders::FLOOD_SHADER_HANDLE;
 
 #[derive(ShaderType)]
@@ -51,12 +51,12 @@ pub(crate) fn prepare_flood_settings(
     extracted_outlines: Res<ExtractedOutlineUniforms>,
     cameras: Query<Entity, With<OutlineCamera>>,
 ) {
-    let settings = FloodSettings {
+    let flood_settings = FloodSettings {
         width: extracted_outlines.max_jfa_width,
     };
 
     for entity in cameras.iter() {
-        commands.entity(entity).insert(settings.clone());
+        commands.entity(entity).insert(flood_settings.clone());
     }
 }
 

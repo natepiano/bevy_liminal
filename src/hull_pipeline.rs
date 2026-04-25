@@ -56,11 +56,11 @@ pub(crate) enum DynamicRange {
 }
 
 impl DynamicRange {
-    pub(crate) const fn from_hdr(is_hdr: bool) -> Self {
-        if is_hdr { Self::Hdr } else { Self::Sdr }
-    }
-
     const fn is_hdr(self) -> bool { matches!(self, Self::Hdr) }
+}
+
+impl From<bool> for DynamicRange {
+    fn from(is_hdr: bool) -> Self { if is_hdr { Self::Hdr } else { Self::Sdr } }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

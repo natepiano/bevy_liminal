@@ -319,7 +319,7 @@ fn run_jfa_composite(
     let pipeline_cache = world.resource::<PipelineCache>();
 
     let sample_mode = SampleMode::from(msaa);
-    let dynamic_range = DynamicRange::from_hdr(view_target.is_hdr());
+    let dynamic_range = DynamicRange::from(view_target.is_hdr());
     let variant = ComposeVariant::new(sample_mode, dynamic_range);
     let pipeline_id = compose_pipeline.pipeline_id(variant);
 

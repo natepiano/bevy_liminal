@@ -11,13 +11,13 @@ use super::mask::JfaOutlinePhase;
 pub(crate) fn update_views(
     mut outline_phases: ResMut<ViewBinnedRenderPhases<JfaOutlinePhase>>,
     mut hull_outline_phases: ResMut<ViewBinnedRenderPhases<HullOutlinePhase>>,
-    query: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
+    camera_query: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
     live_entities.clear();
 
-    for (main_entity, camera) in query.iter() {
+    for (main_entity, camera) in camera_query.iter() {
         if !camera.is_active {
             continue;
         }

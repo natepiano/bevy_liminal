@@ -116,8 +116,8 @@ fn setup(
     ));
 }
 
-fn rotate(mut query: Query<&mut Transform, With<Outline>>, time: Res<Time>) {
-    for mut transform in &mut query {
+fn rotate(mut outline_query: Query<&mut Transform, With<Outline>>, time: Res<Time>) {
+    for mut transform in &mut outline_query {
         let rotation = Quat::from_rotation_y(time.delta_secs() * ROTATION_Y_SPEED)
             * Quat::from_rotation_x(time.delta_secs() * ROTATION_X_SPEED);
 

@@ -68,7 +68,7 @@ path = "examples/msaa.rs"
 
 [[example]]
 name = "benchmark"
-path = "examples/benchmark.rs"
+path = "examples/benchmark/main.rs"
 
 [[example]]
 name = "all_modes"

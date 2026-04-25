@@ -1,5 +1,6 @@
 //! Bevy plugin for rendering mesh outlines using jump-flood and hull-extrusion methods.
 
+mod camera;
 mod compose;
 mod constants;
 mod extract;
@@ -37,6 +38,7 @@ use bevy_render::render_phase::ViewBinnedRenderPhases;
 use bevy_render::render_resource::GpuArrayBuffer;
 use bevy_render::render_resource::SpecializedMeshPipelines;
 use bevy_render::renderer::RenderDevice;
+pub use camera::OutlineCamera;
 use compose::ComposeOutputPipeline;
 use extract::ActiveOutlineModes;
 use extract::ExtractedOutlineUniforms;
@@ -51,7 +53,6 @@ pub use outline::LineStyle;
 pub use outline::NoOutline;
 pub use outline::Outline;
 pub use outline::OutlineActivity;
-pub use outline::OutlineCamera;
 pub use outline::OutlineMethod;
 pub use outline::OverlapMode;
 pub use outline_builder::HullModeState;
@@ -95,7 +96,7 @@ impl Plugin for LiminalPlugin {
 
         // Ensure the main pass depth texture has TEXTURE_BINDING so the compose
         // shader can sample it for correct occlusion of transmissive/transparent geometry.
-        app.add_observer(outline::configure_outline_camera_depth_texture);
+        app.add_observer(camera::configure_outline_camera_depth_texture);
 
         app.add_plugins((
             BinnedRenderPhasePlugin::<JfaOutlinePhase, MeshMaskPipeline>::new(
