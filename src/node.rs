@@ -87,9 +87,9 @@ impl ViewNode for OutlineNode {
             .get_resource::<ViewBinnedRenderPhases<HullOutlinePhase>>()
             .and_then(|phases| phases.get(&extracted_view.retained_view_entity));
 
-        let has_jfa = outline_phase.is_some_and(|phase| !phase.is_empty());
+        let has_jump_flood = outline_phase.is_some_and(|phase| !phase.is_empty());
         let has_hull = hull_phase.is_some_and(|phase| !phase.is_empty());
-        if !has_jfa && !has_hull {
+        if !has_jump_flood && !has_hull {
             return Ok(());
         }
 
@@ -163,7 +163,10 @@ struct MaskInitPassContext<'a> {
     view_entity:        Entity,
 }
 
-fn run_mask_init_pass(render_context: &mut RenderContext<'_>, ctx: MaskInitPassContext<'_>) {
+fn run_mask_init_pass(
+    render_context: &mut RenderContext<'_>,
+    mask_init_pass_context: MaskInitPassContext<'_>,
+) {
     let MaskInitPassContext {
         flood_textures,
         outline_depth_view,
@@ -171,7 +174,7 @@ fn run_mask_init_pass(render_context: &mut RenderContext<'_>, ctx: MaskInitPassC
         outline_phase,
         world,
         view_entity,
-    } = ctx;
+    } = mask_init_pass_context;
     let flood_color_attachment = RenderPassColorAttachment {
         view:           &flood_textures.output.default_view,
         resolve_target: None,
@@ -248,7 +251,7 @@ struct HullPassContext<'a> {
     view_entity:        Entity,
 }
 
-fn run_hull_pass(render_context: &mut RenderContext<'_>, ctx: HullPassContext<'_>) {
+fn run_hull_pass(render_context: &mut RenderContext<'_>, hull_pass_context: HullPassContext<'_>) {
     let HullPassContext {
         view_target,
         view_depth_texture,
@@ -256,7 +259,7 @@ fn run_hull_pass(render_context: &mut RenderContext<'_>, ctx: HullPassContext<'_
         hull_phase,
         world,
         view_entity,
-    } = ctx;
+    } = hull_pass_context;
     let mut hull_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
         label:                    Some("hull_outline_pass"),
         color_attachments:        &[Some(view_target.get_color_attachment())],
@@ -294,7 +297,7 @@ fn run_jfa_composite(
     render_context: &mut RenderContext<'_>,
     world: &World,
     jump_flood_pass: &JumpFloodPass<'_>,
-    ctx: JfaCompositeContext<'_>,
+    jfa_composite_context: JfaCompositeContext<'_>,
     flood_settings: &FloodSettings,
 ) {
     let JfaCompositeContext {
@@ -304,11 +307,11 @@ fn run_jfa_composite(
         view_target,
         view_depth_texture,
         msaa,
-    } = ctx;
+    } = jfa_composite_context;
     let Some(active) = world.get_resource::<ActiveOutlineModes>() else {
         return;
     };
-    if !active.methods.has_jfa() {
+    if !active.methods.has_jump_flood() {
         return;
     }
 

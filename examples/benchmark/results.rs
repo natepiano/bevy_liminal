@@ -7,7 +7,7 @@ use bevy_kana::ToF64;
 use bevy_kana::ToU32;
 use bevy_kana::ToUsize;
 
-use crate::constants::MS_PER_SECOND;
+use crate::constants::MILLISECONDS_PER_SECOND;
 
 #[derive(Clone)]
 pub(super) struct ScenarioResult {
@@ -24,7 +24,7 @@ pub(super) struct ScenarioResult {
 impl ScenarioResult {
     pub(super) fn avg_fps(&self) -> f64 {
         if self.avg > 0.0 {
-            MS_PER_SECOND / self.avg
+            MILLISECONDS_PER_SECOND / self.avg
         } else {
             0.0
         }

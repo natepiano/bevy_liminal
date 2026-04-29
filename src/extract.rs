@@ -21,11 +21,11 @@ pub(crate) struct ActiveOutlineModes {
 #[derive(Resource, Default)]
 pub(crate) struct ExtractedOutlineUniforms {
     /// Map from main-world entity to its extracted outline data.
-    pub(crate) by_main_entity: MainEntityHashMap<ExtractedOutline>,
+    pub(crate) by_main_entity:       MainEntityHashMap<ExtractedOutline>,
     /// Which outline methods appear in the extracted cache.
-    pub(crate) methods:        ActiveOutlineMethods,
-    /// Largest JFA outline width across all extracted outlines.
-    pub(crate) max_jfa_width:  f32,
+    pub(crate) methods:              ActiveOutlineMethods,
+    /// Largest jump-flood outline width across all extracted outlines.
+    pub(crate) max_jump_flood_width: f32,
 }
 
 impl ExtractedOutlineUniforms {
@@ -44,12 +44,12 @@ impl ExtractedOutlineUniforms {
 
     pub(crate) fn recompute_flags_and_width(&mut self) {
         self.methods = ActiveOutlineMethods::None;
-        self.max_jfa_width = 0.0;
+        self.max_jump_flood_width = 0.0;
 
         for outline in self.by_main_entity.values() {
             self.methods = self.methods.with_outline_method(outline.mode);
             if outline.mode == OutlineMethod::JumpFlood {
-                self.max_jfa_width = self.max_jfa_width.max(outline.width);
+                self.max_jump_flood_width = self.max_jump_flood_width.max(outline.width);
             }
         }
     }
@@ -65,7 +65,7 @@ pub(crate) enum ActiveOutlineMethods {
 }
 
 impl ActiveOutlineMethods {
-    pub(crate) const fn has_jfa(self) -> bool {
+    pub(crate) const fn has_jump_flood(self) -> bool {
         matches!(self, Self::JumpFloodOnly | Self::JumpFloodAndHull)
     }
 
@@ -74,11 +74,12 @@ impl ActiveOutlineMethods {
     }
 
     pub(crate) const fn with_outline_method(self, method: OutlineMethod) -> Self {
-        let includes_jfa = self.has_jfa() || matches!(method, OutlineMethod::JumpFlood);
+        let includes_jump_flood =
+            self.has_jump_flood() || matches!(method, OutlineMethod::JumpFlood);
         let includes_hull = self.has_hull()
             || matches!(method, OutlineMethod::WorldHull | OutlineMethod::ScreenHull);
 
-        match (includes_jfa, includes_hull) {
+        match (includes_jump_flood, includes_hull) {
             (false, false) => Self::None,
             (true, false) => Self::JumpFloodOnly,
             (false, true) => Self::HullOnly,

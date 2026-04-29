@@ -52,7 +52,7 @@ pub(crate) fn prepare_flood_settings(
     cameras: Query<Entity, With<OutlineCamera>>,
 ) {
     let flood_settings = FloodSettings {
-        width: extracted_outlines.max_jfa_width,
+        width: extracted_outlines.max_jump_flood_width,
     };
 
     for entity in cameras.iter() {

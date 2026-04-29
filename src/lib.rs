@@ -6,6 +6,7 @@ mod constants;
 mod extract;
 mod flood;
 mod hull_pipeline;
+mod indexing_mode;
 mod mask;
 mod mask_pipeline;
 mod node;

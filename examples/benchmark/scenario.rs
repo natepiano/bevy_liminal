@@ -196,13 +196,13 @@ fn spawn_grid(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-    spec: GridSpawnSpec<'_>,
+    grid_spawn_spec: GridSpawnSpec<'_>,
 ) {
     let mesh_handle = meshes.add(Cuboid::default());
     let material_handle = materials.add(Color::from(YELLOW));
 
-    if spec.count > 100 {
-        spawn_3d_grid(commands, &mesh_handle, &material_handle, spec);
+    if grid_spawn_spec.count > 100 {
+        spawn_3d_grid(commands, &mesh_handle, &material_handle, grid_spawn_spec);
         return;
     }
 
@@ -213,7 +213,7 @@ fn spawn_grid(
         viewport,
         outline_presence,
         outline_method,
-    } = spec;
+    } = grid_spawn_spec;
     let cols = count.to_f32().sqrt().ceil().to_u32();
     let rows = count.div_ceil(cols);
     let h_spacing = viewport.width / cols.to_f32();
@@ -249,7 +249,7 @@ fn spawn_3d_grid(
     commands: &mut Commands,
     mesh_handle: &Handle<Mesh>,
     material_handle: &Handle<StandardMaterial>,
-    spec: GridSpawnSpec<'_>,
+    grid_spawn_spec: GridSpawnSpec<'_>,
 ) {
     let GridSpawnSpec {
         count,
@@ -258,7 +258,7 @@ fn spawn_3d_grid(
         viewport,
         outline_presence,
         outline_method,
-    } = spec;
+    } = grid_spawn_spec;
     let cols: u32 = 10;
     let rows: u32 = 10;
     let face_size = cols * rows;

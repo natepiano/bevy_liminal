@@ -36,6 +36,7 @@ use bevy_render::renderer::RenderDevice;
 use bevy_render::sync_world::MainEntity;
 use nonmax::NonMaxU32;
 
+use super::indexing_mode::IndexingMode;
 use super::shaders::MASK_SHADER_HANDLE;
 use super::uniforms::OutlineUniform;
 
@@ -295,14 +296,10 @@ impl GetFullBatchData for MeshMaskPipeline {
             batch_set_index: batch_set_index.map_or(!0, u32::from),
         };
 
-        if indexed {
-            phase_indirect_parameters_buffers
-                .indexed
-                .set(indirect_parameters_offset, indirect_parameters);
-        } else {
-            phase_indirect_parameters_buffers
-                .non_indexed
-                .set(indirect_parameters_offset, indirect_parameters);
-        }
+        IndexingMode::from(indexed).write_metadata(
+            phase_indirect_parameters_buffers,
+            indirect_parameters_offset,
+            indirect_parameters,
+        );
     }
 }

@@ -28,7 +28,7 @@ const CAMERA_POSITION: Vec3 = Vec3::new(3.0, 2.0, 3.0);
 // Input
 // Note: Sample8 is not supported on all hardware (e.g. Apple Silicon only
 // supports [1, 2, 4]).
-const MSAA_KEYS: [(KeyCode, Msaa); 4] = [
+const MULTISAMPLE_ANTI_ALIASING_KEYS: [(KeyCode, Msaa); 4] = [
     (KeyCode::Digit1, Msaa::Off),
     (KeyCode::Digit2, Msaa::Sample2),
     (KeyCode::Digit3, Msaa::Sample4),
@@ -182,7 +182,10 @@ fn switch_anti_aliasing(
     let mut camera_commands = commands.entity(camera_entity);
     let mut post_anti_aliasing = PostAntiAliasing::from_components(smaa, taa);
 
-    if let Some(&(_, new_msaa)) = MSAA_KEYS.iter().find(|(k, _)| input.just_pressed(*k)) {
+    if let Some(&(_, new_msaa)) = MULTISAMPLE_ANTI_ALIASING_KEYS
+        .iter()
+        .find(|(k, _)| input.just_pressed(*k))
+    {
         // TAA requires MSAA off; enabling any MSAA sample count drops it.
         if new_msaa != Msaa::Off && matches!(post_anti_aliasing, PostAntiAliasing::Taa) {
             camera_commands.remove::<TaaComponents>();
@@ -232,7 +235,9 @@ fn switch_anti_aliasing(
 
     let any_relevant_key = input.just_pressed(KeyCode::KeyS)
         || input.just_pressed(KeyCode::KeyT)
-        || MSAA_KEYS.iter().any(|(k, _)| input.just_pressed(*k));
+        || MULTISAMPLE_ANTI_ALIASING_KEYS
+            .iter()
+            .any(|(k, _)| input.just_pressed(*k));
     if any_relevant_key {
         text_query.0 = build_msaa_text(msaa_label(*msaa), post_anti_aliasing);
     }

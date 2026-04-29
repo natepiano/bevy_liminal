@@ -26,9 +26,9 @@ use constants::CAMERA_LOOK_AT;
 use constants::CAMERA_POSITION;
 use constants::GROUND_PLANE_SIZE;
 use constants::GROUND_PLANE_Y;
-use constants::HUD_FONT_SIZE;
-use constants::HUD_PADDING;
-use constants::HUD_UPDATE_INTERVAL;
+use constants::HEADS_UP_DISPLAY_FONT_SIZE;
+use constants::HEADS_UP_DISPLAY_PADDING;
+use constants::HEADS_UP_DISPLAY_UPDATE_INTERVAL;
 use constants::LIGHT_INTENSITY;
 use constants::LIGHT_POSITION;
 use constants::LIGHT_RANGE;
@@ -57,7 +57,7 @@ fn main() {
         .insert_resource(WinitSettings::continuous())
         .insert_resource(BenchmarkState::new())
         .insert_resource(HudUpdateTimer(Timer::from_seconds(
-            HUD_UPDATE_INTERVAL,
+            HEADS_UP_DISPLAY_UPDATE_INTERVAL,
             TimerMode::Repeating,
         )))
         .add_systems(Startup, setup_benchmark)
@@ -123,14 +123,14 @@ fn setup_benchmark(
     commands.spawn((
         Text::new("Initializing benchmark..."),
         TextFont {
-            font_size: HUD_FONT_SIZE,
+            font_size: HEADS_UP_DISPLAY_FONT_SIZE,
             ..default()
         },
         TextColor(Color::WHITE),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(HUD_PADDING),
-            left: Val::Px(HUD_PADDING),
+            top: Val::Px(HEADS_UP_DISPLAY_PADDING),
+            left: Val::Px(HEADS_UP_DISPLAY_PADDING),
             ..default()
         },
         HudText,

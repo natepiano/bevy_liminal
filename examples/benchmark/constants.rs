@@ -24,9 +24,9 @@ pub(super) const GROUND_PLANE_SIZE: f32 = 100.0;
 pub(super) const GROUND_PLANE_Y: f32 = -3.0;
 
 // HUD
-pub(super) const HUD_FONT_SIZE: f32 = 18.0;
-pub(super) const HUD_PADDING: f32 = 10.0;
-pub(super) const HUD_UPDATE_INTERVAL: f32 = 0.25;
+pub(super) const HEADS_UP_DISPLAY_FONT_SIZE: f32 = 18.0;
+pub(super) const HEADS_UP_DISPLAY_PADDING: f32 = 10.0;
+pub(super) const HEADS_UP_DISPLAY_UPDATE_INTERVAL: f32 = 0.25;
 
 // Lighting
 pub(super) const AMBIENT_LIGHT_BRIGHTNESS: f32 = 200.0;
@@ -36,7 +36,7 @@ pub(super) const LIGHT_RANGE: f32 = 100.0;
 
 // Measurement
 pub(super) const MEASURE_FRAMES: u32 = 600;
-pub(super) const MS_PER_SECOND: f64 = 1000.0;
+pub(super) const MILLISECONDS_PER_SECOND: f64 = 1000.0;
 pub(super) const WARMUP_FRAMES: u32 = 120;
 
 // Outline defaults

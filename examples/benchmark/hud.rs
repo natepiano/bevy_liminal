@@ -8,7 +8,7 @@ use bevy_kana::ToF64;
 use crate::constants::AUTO_EXIT_DELAY_SECS;
 use crate::constants::AUTO_STARTUP_DELAY_SECS;
 use crate::constants::MEASURE_FRAMES;
-use crate::constants::MS_PER_SECOND;
+use crate::constants::MILLISECONDS_PER_SECOND;
 use crate::constants::WARMUP_FRAMES;
 use crate::scenario::SCENARIOS;
 use crate::state::BenchmarkMode;
@@ -42,7 +42,7 @@ struct LiveMetrics {
 
 fn build_hud_text(state: &BenchmarkState, diagnostics: &DiagnosticsStore) -> String {
     let scenario = &SCENARIOS[state.current_scenario];
-    let mode_label = benchmark_mode_label(&state.benchmark_mode);
+    let mode_label = benchmark_mode_label(&state.mode);
     let phase_info = benchmark_phase_label(state);
     let progress = auto_progress_label(state);
     let col = results_label_width();
@@ -89,7 +89,7 @@ fn benchmark_phase_label(state: &BenchmarkState) -> String {
 }
 
 fn auto_progress_label(state: &BenchmarkState) -> String {
-    if state.benchmark_mode == BenchmarkMode::Auto {
+    if state.mode == BenchmarkMode::Auto {
         format!(" ({}/{})", state.current_scenario + 1, SCENARIOS.len())
     } else {
         String::new()
@@ -124,7 +124,7 @@ fn benchmark_stats_line(frame_times: &[f64], col: usize) -> String {
 
     let sum: f64 = frame_times.iter().sum();
     let avg = sum / frame_times.len().to_f64();
-    let avg_fps = MS_PER_SECOND / avg;
+    let avg_fps = MILLISECONDS_PER_SECOND / avg;
     format!("\n{:<col$}FPS: {avg_fps:<4.0}  Frame: {avg:.2}ms", "Bench:")
 }
 

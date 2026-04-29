@@ -43,12 +43,12 @@ pub struct NoOutline;
 /// // JFA — screen-space silhouette, works on all geometry
 /// Outline::jump_flood(4.0).with_color(Color::WHITE).build();
 ///
-/// // ScreenHull — pixel-width vertex extrusion for 3D meshes
+/// // `ScreenHull` — pixel-width vertex extrusion for 3D meshes
 /// Outline::screen_hull(3.0)
 ///     .with_overlap(OverlapMode::PerMesh)
 ///     .build();
 ///
-/// // WorldHull — world-unit vertex extrusion for 3D meshes
+/// // `WorldHull` — world-unit vertex extrusion for 3D meshes
 /// Outline::world_hull(0.05)
 ///     .with_overlap(OverlapMode::Grouped)
 ///     .build();

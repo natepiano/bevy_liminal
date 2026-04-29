@@ -63,13 +63,13 @@ fn main() {
 
 #[derive(Resource)]
 struct OutlineModeToggle {
-    outline_method: OutlineMethod,
+    method: OutlineMethod,
 }
 
 impl Default for OutlineModeToggle {
     fn default() -> Self {
         Self {
-            outline_method: OutlineMethod::WorldHull,
+            method: OutlineMethod::WorldHull,
         }
     }
 }
@@ -239,20 +239,20 @@ fn toggle_outline_mode(
         return;
     }
 
-    mode_toggle.outline_method = match mode_toggle.outline_method {
+    mode_toggle.method = match mode_toggle.method {
         OutlineMethod::JumpFlood => OutlineMethod::WorldHull,
         OutlineMethod::WorldHull => OutlineMethod::ScreenHull,
         OutlineMethod::ScreenHull => OutlineMethod::JumpFlood,
     };
 
-    let (width, overlap) = match mode_toggle.outline_method {
+    let (width, overlap) = match mode_toggle.method {
         OutlineMethod::JumpFlood => (width_control.jump_flood_width_px, OverlapMode::Merged),
         OutlineMethod::WorldHull => (width_control.hull_width_world, overlap_control.hull_overlap),
         OutlineMethod::ScreenHull => (width_control.shell_width_px, overlap_control.shell_overlap),
     };
 
     for mut outline in &mut outline_query {
-        *outline = rebuilt_outline_for_mode(&outline, mode_toggle.outline_method, width, overlap);
+        *outline = rebuilt_outline_for_mode(&outline, mode_toggle.method, width, overlap);
     }
 }
 
@@ -292,7 +292,7 @@ fn adjust_outline_width(
         return;
     }
 
-    match mode_toggle.outline_method {
+    match mode_toggle.method {
         OutlineMethod::JumpFlood => {
             let mut next = width_control.jump_flood_width_px;
             if decrease {
@@ -347,7 +347,7 @@ fn adjust_overlap(
         return;
     }
 
-    let Some(current) = (match mode_toggle.outline_method {
+    let Some(current) = (match mode_toggle.method {
         OutlineMethod::WorldHull => Some(&mut overlap_control.hull_overlap),
         OutlineMethod::ScreenHull => Some(&mut overlap_control.shell_overlap),
         OutlineMethod::JumpFlood => None,
@@ -372,13 +372,13 @@ fn update_ui(
     overlap_control: Res<OverlapControl>,
     mut text_query: Single<&mut Text, With<StatusText>>,
 ) {
-    let mode_line = match mode_toggle.outline_method {
+    let mode_line = match mode_toggle.method {
         OutlineMethod::JumpFlood => "Mode: JumpFlood (M)",
         OutlineMethod::WorldHull => "Mode: WorldHull (M)",
         OutlineMethod::ScreenHull => "Mode: ScreenHull (M)",
     };
 
-    let width_line = match mode_toggle.outline_method {
+    let width_line = match mode_toggle.method {
         OutlineMethod::JumpFlood => {
             format!(
                 "Width: {:.1} px (Left / Right)",
@@ -399,7 +399,7 @@ fn update_ui(
         },
     };
 
-    let overlap_line = match mode_toggle.outline_method {
+    let overlap_line = match mode_toggle.method {
         OutlineMethod::JumpFlood => String::new(),
         OutlineMethod::WorldHull => {
             format!(

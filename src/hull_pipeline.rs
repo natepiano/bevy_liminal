@@ -45,6 +45,7 @@ use bevy_render::view::ViewTarget;
 use nonmax::NonMaxU32;
 
 use super::constants::OUTLINE_NORMAL_SHADER_LOCATION;
+use super::indexing_mode::IndexingMode;
 use super::outline_normals::ATTRIBUTE_OUTLINE_NORMAL;
 use super::shaders::HULL_SHADER_HANDLE;
 use super::uniforms::OutlineUniform;
@@ -318,14 +319,10 @@ impl GetFullBatchData for HullPipeline {
             batch_set_index: batch_set_index.map_or(!0, u32::from),
         };
 
-        if indexed {
-            phase_indirect_parameters_buffers
-                .indexed
-                .set(indirect_parameters_offset, indirect_parameters);
-        } else {
-            phase_indirect_parameters_buffers
-                .non_indexed
-                .set(indirect_parameters_offset, indirect_parameters);
-        }
+        IndexingMode::from(indexed).write_metadata(
+            phase_indirect_parameters_buffers,
+            indirect_parameters_offset,
+            indirect_parameters,
+        );
     }
 }

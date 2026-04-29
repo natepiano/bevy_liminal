@@ -39,7 +39,7 @@ pub(super) enum BenchmarkPhase {
 
 #[derive(Resource)]
 pub(super) struct BenchmarkState {
-    pub(super) benchmark_mode:   BenchmarkMode,
+    pub(super) mode:             BenchmarkMode,
     pub(super) current_scenario: usize,
     pub(super) outline_presence: OutlinePresence,
     pub(super) outline_method:   OutlineMethod,
@@ -66,7 +66,7 @@ impl BenchmarkState {
         };
 
         Self {
-            benchmark_mode: mode,
+            mode,
             current_scenario: 0,
             outline_presence: OutlinePresence::Disabled,
             outline_method: OutlineMethod::default(),
