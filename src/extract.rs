@@ -28,18 +28,46 @@ pub(crate) struct ExtractedOutlineUniforms {
     pub(crate) max_jump_flood_width: f32,
 }
 
+/// Result of upserting an entry into the extracted outline cache.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CacheUpdate {
+    Changed,
+    Unchanged,
+}
+
+impl CacheUpdate {
+    pub(crate) const fn is_changed(self) -> bool { matches!(self, Self::Changed) }
+
+    pub(crate) const fn merge(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Unchanged, Self::Unchanged) => Self::Unchanged,
+            _ => Self::Changed,
+        }
+    }
+}
+
+impl<T> From<Option<T>> for CacheUpdate {
+    fn from(opt: Option<T>) -> Self {
+        if opt.is_some() {
+            Self::Changed
+        } else {
+            Self::Unchanged
+        }
+    }
+}
+
 impl ExtractedOutlineUniforms {
-    pub(crate) fn upsert(&mut self, entity: MainEntity, outline: ExtractedOutline) -> bool {
+    pub(crate) fn upsert(&mut self, entity: MainEntity, outline: ExtractedOutline) -> CacheUpdate {
         if let Some(existing) = self.by_main_entity.get_mut(&entity) {
             if *existing == outline {
-                return false;
+                return CacheUpdate::Unchanged;
             }
             *existing = outline;
-            return true;
+            return CacheUpdate::Changed;
         }
 
         self.by_main_entity.insert(entity, outline);
-        true
+        CacheUpdate::Changed
     }
 
     pub(crate) fn recompute_flags_and_width(&mut self) {
@@ -137,46 +165,52 @@ pub(crate) fn extract_outline_uniforms(
     mut removed_outlines: Extract<RemovedComponents<Outline>>,
     mut removed_meshes: Extract<RemovedComponents<Mesh3d>>,
 ) {
-    let mut dirty = false;
+    let mut dirty = CacheUpdate::Unchanged;
 
     for entity in removed_outlines.read() {
-        dirty |= extracted_outlines
-            .by_main_entity
-            .remove(&MainEntity::from(entity))
-            .is_some();
+        dirty = dirty.merge(
+            extracted_outlines
+                .by_main_entity
+                .remove(&MainEntity::from(entity))
+                .into(),
+        );
     }
 
     for entity in removed_meshes.read() {
-        dirty |= extracted_outlines
-            .by_main_entity
-            .remove(&MainEntity::from(entity))
-            .is_some();
+        dirty = dirty.merge(
+            extracted_outlines
+                .by_main_entity
+                .remove(&MainEntity::from(entity))
+                .into(),
+        );
     }
 
     for (entity, outline) in &added_or_changed_outlines {
         if outline.activity.is_enabled() {
-            dirty |= extracted_outlines.upsert(
+            dirty = dirty.merge(extracted_outlines.upsert(
                 MainEntity::from(entity),
                 ExtractedOutline::from_main_world(entity, outline),
-            );
+            ));
         } else {
-            dirty |= extracted_outlines
-                .by_main_entity
-                .remove(&MainEntity::from(entity))
-                .is_some();
+            dirty = dirty.merge(
+                extracted_outlines
+                    .by_main_entity
+                    .remove(&MainEntity::from(entity))
+                    .into(),
+            );
         }
     }
 
     for (entity, outline) in &added_mesh_outlines {
         if outline.activity.is_enabled() {
-            dirty |= extracted_outlines.upsert(
+            dirty = dirty.merge(extracted_outlines.upsert(
                 MainEntity::from(entity),
                 ExtractedOutline::from_main_world(entity, outline),
-            );
+            ));
         }
     }
 
-    if dirty {
+    if dirty.is_changed() {
         extracted_outlines.recompute_flags_and_width();
     }
 }

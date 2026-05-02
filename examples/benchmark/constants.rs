@@ -10,10 +10,10 @@ pub(super) const CAMERA_LOOK_AT: Vec3 = Vec3::new(0.0, 4.0, 0.0);
 pub(super) const CAMERA_POSITION: Vec3 = Vec3::new(8.0, 2.0, 14.0);
 
 // Cube fill ratios
-pub(super) const CUBE_FILL_RATIO_5: f32 = 0.45;
-pub(super) const CUBE_FILL_RATIO_10: f32 = 0.65;
-pub(super) const CUBE_FILL_RATIO_100: f32 = 0.55;
-pub(super) const CUBE_FILL_RATIO_1000: f32 = 0.35;
+pub(super) const CUBE_FILL_RATIO_00005: f32 = 0.45;
+pub(super) const CUBE_FILL_RATIO_00010: f32 = 0.65;
+pub(super) const CUBE_FILL_RATIO_00100: f32 = 0.55;
+pub(super) const CUBE_FILL_RATIO_01000: f32 = 0.35;
 pub(super) const CUBE_FILL_RATIO_10000: f32 = 0.25;
 pub(super) const CUBE_FILL_RATIO_50000: f32 = 0.15;
 

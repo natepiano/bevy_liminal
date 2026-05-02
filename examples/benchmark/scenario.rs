@@ -8,10 +8,10 @@ use bevy_liminal::OverlapMode;
 use rand::RngExt;
 
 use crate::constants::CAMERA_LOOK_AT;
-use crate::constants::CUBE_FILL_RATIO_5;
-use crate::constants::CUBE_FILL_RATIO_10;
-use crate::constants::CUBE_FILL_RATIO_100;
-use crate::constants::CUBE_FILL_RATIO_1000;
+use crate::constants::CUBE_FILL_RATIO_00005;
+use crate::constants::CUBE_FILL_RATIO_00010;
+use crate::constants::CUBE_FILL_RATIO_00100;
+use crate::constants::CUBE_FILL_RATIO_01000;
 use crate::constants::CUBE_FILL_RATIO_10000;
 use crate::constants::CUBE_FILL_RATIO_50000;
 use crate::constants::DEFAULT_OUTLINE_INTENSITY;
@@ -43,7 +43,7 @@ pub(super) const SCENARIOS: &[ScenarioDefinition] = &[
         kind: ScenarioKind::Grid {
             count:     1,
             width:     DEFAULT_OUTLINE_WIDTH,
-            cube_fill: CUBE_FILL_RATIO_5,
+            cube_fill: CUBE_FILL_RATIO_00005,
         },
     },
     ScenarioDefinition {
@@ -52,7 +52,7 @@ pub(super) const SCENARIOS: &[ScenarioDefinition] = &[
         kind: ScenarioKind::Grid {
             count:     5,
             width:     DEFAULT_OUTLINE_WIDTH,
-            cube_fill: CUBE_FILL_RATIO_5,
+            cube_fill: CUBE_FILL_RATIO_00005,
         },
     },
     ScenarioDefinition {
@@ -61,7 +61,7 @@ pub(super) const SCENARIOS: &[ScenarioDefinition] = &[
         kind: ScenarioKind::Grid {
             count:     10,
             width:     DEFAULT_OUTLINE_WIDTH,
-            cube_fill: CUBE_FILL_RATIO_10,
+            cube_fill: CUBE_FILL_RATIO_00010,
         },
     },
     ScenarioDefinition {
@@ -70,7 +70,7 @@ pub(super) const SCENARIOS: &[ScenarioDefinition] = &[
         kind: ScenarioKind::Grid {
             count:     100,
             width:     DEFAULT_OUTLINE_WIDTH,
-            cube_fill: CUBE_FILL_RATIO_100,
+            cube_fill: CUBE_FILL_RATIO_00100,
         },
     },
     ScenarioDefinition {
@@ -79,7 +79,7 @@ pub(super) const SCENARIOS: &[ScenarioDefinition] = &[
         kind: ScenarioKind::Grid {
             count:     1000,
             width:     DEFAULT_OUTLINE_WIDTH,
-            cube_fill: CUBE_FILL_RATIO_1000,
+            cube_fill: CUBE_FILL_RATIO_01000,
         },
     },
     ScenarioDefinition {
