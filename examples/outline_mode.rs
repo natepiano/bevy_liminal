@@ -93,15 +93,15 @@ impl Default for OutlineWidthControl {
 
 #[derive(Resource)]
 struct OverlapControl {
-    hull_overlap:  OverlapMode,
-    shell_overlap: OverlapMode,
+    hull:  OverlapMode,
+    shell: OverlapMode,
 }
 
 impl Default for OverlapControl {
     fn default() -> Self {
         Self {
-            hull_overlap:  INITIAL_HULL_OVERLAP,
-            shell_overlap: INITIAL_SHELL_OVERLAP,
+            hull:  INITIAL_HULL_OVERLAP,
+            shell: INITIAL_SHELL_OVERLAP,
         }
     }
 }
@@ -247,8 +247,8 @@ fn toggle_outline_mode(
 
     let (width, overlap) = match mode_toggle.method {
         OutlineMethod::JumpFlood => (width_control.jump_flood_width_px, OverlapMode::Merged),
-        OutlineMethod::WorldHull => (width_control.hull_width_world, overlap_control.hull_overlap),
-        OutlineMethod::ScreenHull => (width_control.shell_width_px, overlap_control.shell_overlap),
+        OutlineMethod::WorldHull => (width_control.hull_width_world, overlap_control.hull),
+        OutlineMethod::ScreenHull => (width_control.shell_width_px, overlap_control.shell),
     };
 
     for mut outline in &mut outline_query {
@@ -348,8 +348,8 @@ fn adjust_overlap(
     }
 
     let Some(current) = (match mode_toggle.method {
-        OutlineMethod::WorldHull => Some(&mut overlap_control.hull_overlap),
-        OutlineMethod::ScreenHull => Some(&mut overlap_control.shell_overlap),
+        OutlineMethod::WorldHull => Some(&mut overlap_control.hull),
+        OutlineMethod::ScreenHull => Some(&mut overlap_control.shell),
         OutlineMethod::JumpFlood => None,
     }) else {
         return;
@@ -404,13 +404,13 @@ fn update_ui(
         OutlineMethod::WorldHull => {
             format!(
                 "Overlap: {} (- / +)",
-                overlap_mode_label(overlap_control.hull_overlap)
+                overlap_mode_label(overlap_control.hull)
             )
         },
         OutlineMethod::ScreenHull => {
             format!(
                 "Overlap: {} (- / +)",
-                overlap_mode_label(overlap_control.shell_overlap)
+                overlap_mode_label(overlap_control.shell)
             )
         },
     };

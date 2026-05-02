@@ -128,7 +128,7 @@ impl ViewNode for OutlineNode {
                     view_target,
                     view_depth_texture,
                     camera,
-                    hull_phase,
+                    phase: hull_phase,
                     world,
                     view_entity,
                 },
@@ -246,7 +246,7 @@ struct HullPassContext<'a> {
     view_target:        &'a ViewTarget,
     view_depth_texture: &'a ViewDepthTexture,
     camera:             &'a ExtractedCamera,
-    hull_phase:         &'a BinnedRenderPhase<HullOutlinePhase>,
+    phase:              &'a BinnedRenderPhase<HullOutlinePhase>,
     world:              &'a World,
     view_entity:        Entity,
 }
@@ -256,7 +256,7 @@ fn run_hull_pass(render_context: &mut RenderContext<'_>, hull_pass_context: Hull
         view_target,
         view_depth_texture,
         camera,
-        hull_phase,
+        phase,
         world,
         view_entity,
     } = hull_pass_context;
@@ -279,7 +279,7 @@ fn run_hull_pass(render_context: &mut RenderContext<'_>, hull_pass_context: Hull
         hull_pass.set_camera_viewport(viewport);
     }
 
-    if let Err(err) = hull_phase.render(&mut hull_pass, world, view_entity) {
+    if let Err(err) = phase.render(&mut hull_pass, world, view_entity) {
         error!("Error encountered while rendering hull outline phase {err:?}");
     }
 }

@@ -64,7 +64,7 @@ pub(crate) fn prepare_flood_settings(
 pub(crate) struct JumpFloodPipeline {
     pub(crate) layout:         BindGroupLayoutDescriptor,
     pub(crate) sampler:        Sampler,
-    pub(crate) pipeline_id:    CachedRenderPipelineId,
+    pub(crate) id:             CachedRenderPipelineId,
     pub(crate) lookup_buffer:  DynamicUniformBuffer<JumpFloodUniform>,
     pub(crate) lookup_offsets: Vec<u32>,
 }
@@ -94,7 +94,7 @@ impl FromWorld for JumpFloodPipeline {
 
         let fullscreen_shader = world.resource::<FullscreenShader>().clone();
 
-        let pipeline_id =
+        let id =
             world
                 .resource_mut::<PipelineCache>()
                 .queue_render_pipeline(RenderPipelineDescriptor {
@@ -133,7 +133,7 @@ impl FromWorld for JumpFloodPipeline {
         Self {
             layout,
             sampler,
-            pipeline_id,
+            id,
             lookup_buffer: uniform_buffer,
             lookup_offsets: offsets,
         }
@@ -158,7 +158,7 @@ impl<'w> JumpFloodPass<'w> {
     pub(crate) fn new(world: &'w World) -> Option<Self> {
         let pipeline = world.resource::<JumpFloodPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
-        let render_pipeline = pipeline_cache.get_render_pipeline(pipeline.pipeline_id)?;
+        let render_pipeline = pipeline_cache.get_render_pipeline(pipeline.id)?;
 
         Some(Self {
             pipeline,

@@ -104,7 +104,7 @@ pub(crate) fn queue_outline(
                 &pipeline_cache,
                 &mesh_outline_pipeline,
                 MaskPipelineKey {
-                    mesh_key,
+                    mesh:          mesh_key,
                     hull_presence: if active.methods.has_hull() {
                         HullPresence::Present
                     } else {
@@ -218,8 +218,8 @@ pub(crate) fn queue_hull_outline(
                 &pipeline_cache,
                 &hull_pipeline,
                 HullPipelineKey {
-                    mesh_key,
-                    dynamic_range: view.hdr.into(),
+                    mesh:                    mesh_key,
+                    dynamic_range:           view.hdr.into(),
                     outline_normal_presence: if mesh.layout.0.contains(ATTRIBUTE_OUTLINE_NORMAL) {
                         OutlineNormalPresence::Present
                     } else {
