@@ -1,11 +1,13 @@
 //! Performance benchmark spawning many outlined meshes with FPS tracking.
 
 mod constants;
+mod grid;
 mod hud;
 mod results;
-mod scenario;
+mod scenarios;
 mod state;
 mod tick;
+mod viewport;
 
 use bevy::color::palettes::css::DARK_SEA_GREEN;
 use bevy::input::keyboard::KeyboardInput;
@@ -25,6 +27,7 @@ use constants::AMBIENT_LIGHT_BRIGHTNESS;
 use constants::CAMERA_LOOK_AT;
 use constants::CAMERA_POSITION;
 use constants::GROUND_PLANE_SIZE;
+use constants::GROUND_PLANE_SUBDIVISIONS;
 use constants::GROUND_PLANE_Y;
 use constants::HEADS_UP_DISPLAY_FONT_SIZE;
 use constants::HEADS_UP_DISPLAY_PADDING;
@@ -113,7 +116,7 @@ fn setup_benchmark(
                 Plane3d::default()
                     .mesh()
                     .size(GROUND_PLANE_SIZE, GROUND_PLANE_SIZE)
-                    .subdivisions(10),
+                    .subdivisions(GROUND_PLANE_SUBDIVISIONS),
             ),
         ),
         MeshMaterial3d(materials.add(Color::from(DARK_SEA_GREEN))),

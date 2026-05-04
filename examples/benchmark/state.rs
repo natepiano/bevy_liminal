@@ -7,7 +7,7 @@ use crate::constants::AUTO_MODE_ENV_VAR;
 use crate::constants::AUTO_STARTUP_DELAY_SECS;
 use crate::constants::MEASURE_FRAMES;
 use crate::results::ScenarioResult;
-use crate::scenario::SCENARIOS;
+use crate::scenarios::SCENARIOS;
 
 #[derive(PartialEq, Eq)]
 pub(super) enum BenchmarkMode {

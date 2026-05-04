@@ -20,16 +20,61 @@ use bevy_liminal::OutlineMethod;
 use bevy_liminal::OverlapMode;
 use bevy_window_manager::WindowManagerPlugin;
 
-// Grid layout
-const GRID_SPACING: f32 = 5.0;
-const SPACESHIP_SCALE: f32 = 0.3;
+// camera and lighting
+const CAMERA_FOCUS: Vec3 = Vec3::ZERO;
+const CAMERA_POSITION: Vec3 = Vec3::new(0.0, 12.0, 18.0);
+const LIGHT_POSITION: Vec3 = Vec3::new(4.0, 8.0, 4.0);
 
-// Outline
+// environment
+const GROUND_COLOR: Color = Color::srgb(0.3, 0.5, 0.3);
+const GROUND_SIZE: f32 = 18.0;
+
+// grid layout
+const CUBE_ROW_Y: f32 = 1.0;
+const CUBE_ROW_Z: f32 = 0.0;
+const GRID_CENTER_COLUMN: f32 = 1.0;
+const GRID_SPACING: f32 = 5.0;
+const SPACESHIP_ROW_Y: f32 = 1.5;
+const SPACESHIP_ROW_Z: f32 = GRID_SPACING;
+const SPACESHIP_SCALE: f32 = 0.3;
+const TORUS_ROW_Y: f32 = 1.0;
+const TORUS_ROW_Z: f32 = -GRID_SPACING;
+
+// labels
+const COLUMN_LABEL_FONT_SIZE: f32 = 24.0;
+const COLUMN_LABEL_X_SCALE: f32 = 80.0;
+const COLUMN_LABEL_Y: f32 = 280.0;
+
+// meshes
+const CUBE_BASE_COLOR: Color = Color::srgb(0.8, 0.7, 0.6);
+const SPHERE_BASE_COLOR: Color = Color::srgb(0.65, 0.55, 0.75);
+const SPHERE_CHILD_OFFSET_X: f32 = 0.5;
+const SPHERE_RADIUS: f32 = 0.25;
+const SPHERE_UV_LATITUDES: u32 = 16;
+const SPHERE_UV_LONGITUDES: u32 = 32;
+const TORUS_BASE_COLOR: Color = Color::srgb(0.2, 0.7, 0.3);
+const TORUS_INNER_RADIUS: f32 = 0.25;
+const TORUS_MAJOR_RESOLUTION: usize = 64;
+const TORUS_MINOR_RESOLUTION: usize = 64;
+const TORUS_OUTER_RADIUS: f32 = 0.75;
+
+// outline
 const OUTLINE_COLOR: Color = Color::srgb(0.0, 0.8, 1.0);
 const OUTLINE_INTENSITY: f32 = 1.5;
 const OUTLINE_WIDTH: f32 = 4.0;
+const WORLD_HULL_OUTLINE_WIDTH: f32 = 0.03;
 
-// Zoom
+// rotations
+const COLUMN_ROTATION_ANGLES: [(f32, f32, f32); 3] =
+    [(0.7, 0.4, 0.0), (0.0, 0.0, 0.0), (-0.7, -0.9, 0.15)];
+
+// ui
+const OVERLAP_LABEL_COLOR: Color = Color::srgba(1.0, 1.0, 0.5, 0.9);
+const UI_PADDING: f32 = 12.0;
+const UI_TEXT_COLOR: Color = Color::srgba(1.0, 1.0, 1.0, 0.8);
+const UI_TEXT_FONT_SIZE: f32 = 16.0;
+
+// zoom
 const ZOOM_DURATION_MS: u64 = 1000;
 const ZOOM_MARGIN_MESH: f32 = 0.15;
 const ZOOM_MARGIN_SCENE: f32 = 0.08;
@@ -66,26 +111,30 @@ fn setup(
     let cube = MeshAndMaterial {
         mesh:     meshes.add(Cuboid::default()),
         material: materials.add(StandardMaterial {
-            base_color: Color::srgb(0.8, 0.7, 0.6),
+            base_color: CUBE_BASE_COLOR,
             ..default()
         }),
     };
     let sphere = MeshAndMaterial {
-        mesh:     meshes.add(Sphere::new(0.25).mesh().uv(32, 16)),
+        mesh:     meshes.add(
+            Sphere::new(SPHERE_RADIUS)
+                .mesh()
+                .uv(SPHERE_UV_LONGITUDES, SPHERE_UV_LATITUDES),
+        ),
         material: materials.add(StandardMaterial {
-            base_color: Color::srgb(0.65, 0.55, 0.75),
+            base_color: SPHERE_BASE_COLOR,
             ..default()
         }),
     };
     let torus = MeshAndMaterial {
         mesh:     meshes.add(
-            Torus::new(0.25, 0.75)
+            Torus::new(TORUS_INNER_RADIUS, TORUS_OUTER_RADIUS)
                 .mesh()
-                .minor_resolution(64)
-                .major_resolution(64),
+                .minor_resolution(TORUS_MINOR_RESOLUTION)
+                .major_resolution(TORUS_MAJOR_RESOLUTION),
         ),
         material: materials.add(StandardMaterial {
-            base_color: Color::srgb(0.2, 0.7, 0.3),
+            base_color: TORUS_BASE_COLOR,
             ..default()
         }),
     };
@@ -108,21 +157,18 @@ fn spawn_outline_grid(
         (OutlineMethod::JumpFlood, "JumpFlood"),
     ];
 
-    let column_rotations = [
-        Quat::from_euler(EulerRot::YXZ, 0.7, 0.4, 0.0),
-        Quat::IDENTITY,
-        Quat::from_euler(EulerRot::YXZ, -0.7, -0.9, 0.15),
-    ];
+    let column_rotations = COLUMN_ROTATION_ANGLES
+        .map(|(yaw, pitch, roll)| Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll));
 
     for (col, &(mode, label)) in modes.iter().enumerate() {
-        let x = (col.to_f32() - 1.0) * GRID_SPACING;
+        let x = (col.to_f32() - GRID_CENTER_COLUMN) * GRID_SPACING;
         let rotation = column_rotations[col];
         let outline = match mode {
             OutlineMethod::JumpFlood => Outline::jump_flood(OUTLINE_WIDTH)
                 .with_color(OUTLINE_COLOR)
                 .with_intensity(OUTLINE_INTENSITY)
                 .build(),
-            OutlineMethod::WorldHull => Outline::world_hull(0.03)
+            OutlineMethod::WorldHull => Outline::world_hull(WORLD_HULL_OUTLINE_WIDTH)
                 .with_color(OUTLINE_COLOR)
                 .with_intensity(OUTLINE_INTENSITY)
                 .build(),
@@ -138,7 +184,7 @@ fn spawn_outline_grid(
                 Mesh3d(torus.mesh.clone()),
                 MeshMaterial3d(torus.material.clone()),
                 Transform {
-                    translation: Vec3::new(x, 1.0, -GRID_SPACING),
+                    translation: Vec3::new(x, TORUS_ROW_Y, TORUS_ROW_Z),
                     rotation,
                     ..default()
                 },
@@ -152,7 +198,7 @@ fn spawn_outline_grid(
                 Mesh3d(cube.mesh.clone()),
                 MeshMaterial3d(cube.material.clone()),
                 Transform {
-                    translation: Vec3::new(x, 1.0, 0.0),
+                    translation: Vec3::new(x, CUBE_ROW_Y, CUBE_ROW_Z),
                     rotation,
                     ..default()
                 },
@@ -164,13 +210,13 @@ fn spawn_outline_grid(
                     Name::new("Sphere +X"),
                     Mesh3d(sphere.mesh.clone()),
                     MeshMaterial3d(sphere.material.clone()),
-                    Transform::from_xyz(0.5, 0.0, 0.0),
+                    Transform::from_xyz(SPHERE_CHILD_OFFSET_X, 0.0, 0.0),
                 ));
                 parent.spawn((
                     Name::new("Sphere -X"),
                     Mesh3d(sphere.mesh.clone()),
                     MeshMaterial3d(sphere.material.clone()),
-                    Transform::from_xyz(-0.5, 0.0, 0.0),
+                    Transform::from_xyz(-SPHERE_CHILD_OFFSET_X, 0.0, 0.0),
                 ));
             });
 
@@ -179,7 +225,7 @@ fn spawn_outline_grid(
                 Name::new(format!("Spaceship ({label})")),
                 SceneRoot(asset_server.load("spaceship.glb#Scene0")),
                 Transform {
-                    translation: Vec3::new(x, 1.5, GRID_SPACING),
+                    translation: Vec3::new(x, SPACESHIP_ROW_Y, SPACESHIP_ROW_Z),
                     rotation,
                     scale: Vec3::splat(SPACESHIP_SCALE),
                 },
@@ -190,11 +236,11 @@ fn spawn_outline_grid(
         commands.spawn((
             Text2d::new(label),
             TextFont {
-                font_size: 24.0,
+                font_size: COLUMN_LABEL_FONT_SIZE,
                 ..default()
             },
             TextColor(Color::WHITE),
-            Transform::from_xyz(x * 80.0, 280.0, 0.0),
+            Transform::from_xyz(x * COLUMN_LABEL_X_SCALE, COLUMN_LABEL_Y, 0.0),
         ));
     }
 }
@@ -206,9 +252,9 @@ fn spawn_environment(
 ) {
     let ground = commands
         .spawn((
-            Mesh3d(meshes.add(Plane3d::default().mesh().size(18.0, 18.0))),
+            Mesh3d(meshes.add(Plane3d::default().mesh().size(GROUND_SIZE, GROUND_SIZE))),
             MeshMaterial3d(materials.add(StandardMaterial {
-                base_color: Color::srgb(0.3, 0.5, 0.3),
+                base_color: GROUND_COLOR,
                 double_sided: true,
                 cull_mode: None,
                 ..default()
@@ -224,7 +270,7 @@ fn spawn_environment(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_translation(LIGHT_POSITION).looking_at(CAMERA_FOCUS, Vec3::Y),
     ));
 
     commands.spawn((
@@ -239,7 +285,7 @@ fn spawn_environment(
             }),
             ..default()
         },
-        Transform::from_xyz(0.0, 12.0, 18.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_translation(CAMERA_POSITION).looking_at(CAMERA_FOCUS, Vec3::Y),
     ));
 }
 
@@ -254,14 +300,14 @@ fn spawn_ui(commands: &mut Commands) {
              Rows: Torus | Cube | Spaceship",
         ),
         TextFont {
-            font_size: 16.0,
+            font_size: UI_TEXT_FONT_SIZE,
             ..default()
         },
-        TextColor(Color::srgba(1.0, 1.0, 1.0, 0.8)),
+        TextColor(UI_TEXT_COLOR),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: Val::Px(UI_PADDING),
+            left: Val::Px(UI_PADDING),
             ..default()
         },
     ));
@@ -270,14 +316,14 @@ fn spawn_ui(commands: &mut Commands) {
         OverlapLabel,
         Text::new("Overlap: Merged"),
         TextFont {
-            font_size: 16.0,
+            font_size: UI_TEXT_FONT_SIZE,
             ..default()
         },
-        TextColor(Color::srgba(1.0, 1.0, 0.5, 0.9)),
+        TextColor(OVERLAP_LABEL_COLOR),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: Val::Px(UI_PADDING),
+            left: Val::Px(UI_PADDING),
             ..default()
         },
     ));

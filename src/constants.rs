@@ -1,6 +1,6 @@
 use bevy::prelude::LinearRgba;
 
-// Outline rendering constants
+// outline rendering constants
 /// Multiplicative identity — no scaling applied to the outline color.
 pub(crate) const DEFAULT_OUTLINE_INTENSITY: f32 = 1.0;
 

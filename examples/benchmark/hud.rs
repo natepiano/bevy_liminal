@@ -10,7 +10,8 @@ use crate::constants::AUTO_STARTUP_DELAY_SECS;
 use crate::constants::MEASURE_FRAMES;
 use crate::constants::MILLISECONDS_PER_SECOND;
 use crate::constants::WARMUP_FRAMES;
-use crate::scenario::SCENARIOS;
+use crate::scenarios::SCENARIOS;
+use crate::scenarios::ScenarioDefinition;
 use crate::state::BenchmarkMode;
 use crate::state::BenchmarkPhase;
 use crate::state::BenchmarkState;
@@ -143,7 +144,7 @@ fn append_results_section(
 fn append_scenario_results(
     hud: &mut String,
     state: &BenchmarkState,
-    scenario: &crate::scenario::ScenarioDefinition,
+    scenario: &ScenarioDefinition,
     col: usize,
     outline_method_name: &str,
 ) {

@@ -6,18 +6,18 @@ use crate::constants::AUTO_STARTUP_DELAY_SECS;
 use crate::constants::MEASURE_FRAMES;
 use crate::constants::MILLISECONDS_PER_SECOND;
 use crate::constants::WARMUP_FRAMES;
+use crate::grid::BenchmarkEntity;
 use crate::results::compute_statistics;
 use crate::results::write_results;
-use crate::scenario::BenchmarkEntity;
-use crate::scenario::SCENARIOS;
-use crate::scenario::compute_viewport_info;
-use crate::scenario::spawn_scenario;
+use crate::scenarios::SCENARIOS;
+use crate::scenarios::spawn_scenario;
 use crate::state::BenchmarkMode;
 use crate::state::BenchmarkPhase;
 use crate::state::BenchmarkState;
 use crate::state::OutlinePresence;
 use crate::state::next_outline_method;
 use crate::state::outline_method_label;
+use crate::viewport::compute_viewport_info;
 
 #[derive(SystemParam)]
 pub(super) struct BenchmarkTickParams<'w, 's> {

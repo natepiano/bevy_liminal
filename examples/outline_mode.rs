@@ -21,14 +21,55 @@ use bevy_liminal::OutlineMethod;
 use bevy_liminal::OverlapMode;
 use bevy_window_manager::WindowManagerPlugin;
 
-// Initial overlap modes
+// camera and lighting
+const CAMERA_FOCUS: Vec3 = Vec3::new(0.0, 1.0, 0.0);
+const CAMERA_POSITION: Vec3 = Vec3::new(2.2, 1.2, 2.2);
+const CAMERA_RADIUS: f32 = 2.8;
+const CAMERA_SMOOTHNESS: f32 = 0.0;
+const LIGHT_INTENSITY: f32 = 10_000_000.0;
+const LIGHT_POSITION: Vec3 = Vec3::new(8.0, 16.0, 8.0);
+const LIGHT_RANGE: f32 = 100.0;
+const LIGHT_SHADOW_DEPTH_BIAS: f32 = 0.2;
+
+// environment
+const GROUND_SIZE: f32 = 50.0;
+const GROUND_SUBDIVISIONS: u32 = 10;
+
+// initial overlap modes
 const INITIAL_HULL_OVERLAP: OverlapMode = OverlapMode::Merged;
 const INITIAL_SHELL_OVERLAP: OverlapMode = OverlapMode::PerMesh;
 
-// Initial widths
+// initial widths
 const INITIAL_HULL_WIDTH_WORLD: f32 = 0.01;
 const INITIAL_JUMP_FLOOD_WIDTH_PX: f32 = 5.0;
 const INITIAL_SHELL_WIDTH_PX: f32 = 2.0;
+
+// mesh layout
+const INTERSECTING_CUBE_POSITION: Vec3 = Vec3::new(0.0, 1.0, 0.0);
+const INTERSECTING_SPHERE_POSITION: Vec3 = Vec3::new(-0.5, 1.0, 0.5);
+const NON_INTERSECTING_CUBE_EDGE: f32 = 0.6;
+const NON_INTERSECTING_CUBE_POSITION: Vec3 = Vec3::new(0.0, 1.0, -4.0);
+const NON_INTERSECTING_SPHERE_POSITION: Vec3 = Vec3::new(-0.75, 1.0, -7.8);
+const NON_INTERSECTING_SPHERE_RADIUS: f32 = 0.5;
+
+// outline tuning
+const CUBE_ROTATION_X: f32 = PI / 5.0;
+const CUBE_ROTATION_Y: f32 = PI / 3.0;
+const SECONDARY_OUTLINE_INTENSITY: f32 = 10.0;
+const TRANSPARENT_BASE_ALPHA: f32 = 0.5;
+
+// ui
+const STATUS_TEXT_FONT_SIZE: f32 = 24.0;
+const STATUS_TEXT_PADDING: f32 = 10.0;
+
+// width controls
+const JUMP_FLOOD_WIDTH_MIN: f32 = 1.0;
+const JUMP_FLOOD_WIDTH_STEP: f32 = 1.0;
+const SCREEN_HULL_WIDTH_MIN: f32 = 0.5;
+const SCREEN_HULL_WIDTH_STEP: f32 = 0.5;
+const WORLD_HULL_WIDTH_MAX: f32 = 10.0;
+const WORLD_HULL_WIDTH_MIN: f32 = 0.0001;
+const WORLD_HULL_WIDTH_SCALE_FACTOR: f32 = 1.2;
 
 fn main() {
     App::new()
@@ -116,7 +157,7 @@ fn setup(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(2.2, 1.2, 2.2).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        Transform::from_translation(CAMERA_POSITION).looking_at(CAMERA_FOCUS, Vec3::Y),
         OrbitCam {
             button_orbit: MouseButton::Middle,
             button_pan: MouseButton::Middle,
@@ -125,11 +166,11 @@ fn setup(
                 trackpad: Some(TrackpadInput::blender_default()),
                 ..default()
             }),
-            orbit_smoothness: 0.0,
-            pan_smoothness: 0.0,
-            zoom_smoothness: 0.0,
-            focus: Vec3::new(0.0, 1.0, 0.0),
-            radius: Some(2.8),
+            orbit_smoothness: CAMERA_SMOOTHNESS,
+            pan_smoothness: CAMERA_SMOOTHNESS,
+            zoom_smoothness: CAMERA_SMOOTHNESS,
+            focus: CAMERA_FOCUS,
+            radius: Some(CAMERA_RADIUS),
             ..default()
         },
         OutlineCamera,
@@ -138,17 +179,24 @@ fn setup(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            intensity: 10_000_000.,
-            range: 100.0,
-            shadow_depth_bias: 0.2,
+            intensity: LIGHT_INTENSITY,
+            range: LIGHT_RANGE,
+            shadow_depth_bias: LIGHT_SHADOW_DEPTH_BIAS,
             ..default()
         },
-        Transform::from_xyz(8.0, 16.0, 8.0),
+        Transform::from_translation(LIGHT_POSITION),
     ));
 
     // ground plane
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10))),
+        Mesh3d(
+            meshes.add(
+                Plane3d::default()
+                    .mesh()
+                    .size(GROUND_SIZE, GROUND_SIZE)
+                    .subdivisions(GROUND_SUBDIVISIONS),
+            ),
+        ),
         MeshMaterial3d(materials.add(Color::from(SILVER))),
     ));
 
@@ -156,12 +204,13 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::from(YELLOW).with_alpha(0.5),
+            base_color: Color::from(YELLOW).with_alpha(TRANSPARENT_BASE_ALPHA),
             alpha_mode: AlphaMode::Blend,
             ..default()
         })),
-        Transform::from_xyz(0.0, 1.0, 0.0)
-            .with_rotation(Quat::from_rotation_x(PI / 5.0) * Quat::from_rotation_y(PI / 3.0)),
+        Transform::from_translation(INTERSECTING_CUBE_POSITION).with_rotation(
+            Quat::from_rotation_x(CUBE_ROTATION_X) * Quat::from_rotation_y(CUBE_ROTATION_Y),
+        ),
         Outline::world_hull(INITIAL_HULL_WIDTH_WORLD)
             .with_color(Color::from(RED))
             .with_overlap(INITIAL_HULL_OVERLAP)
@@ -171,38 +220,39 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Sphere::default())),
         MeshMaterial3d(materials.add(Color::from(BLUE))),
-        Transform::from_xyz(-0.5, 1.0, 0.5),
+        Transform::from_translation(INTERSECTING_SPHERE_POSITION),
         Outline::world_hull(INITIAL_HULL_WIDTH_WORLD)
             .with_color(Color::from(GREEN))
-            .with_intensity(10.0)
+            .with_intensity(SECONDARY_OUTLINE_INTENSITY)
             .with_overlap(INITIAL_HULL_OVERLAP)
             .build(),
     ));
 
     // Non-intersecting pair: cube in front of sphere (screen overlap only)
     let non_intersect_cube_mat = materials.add(StandardMaterial {
-        base_color: Color::from(YELLOW).with_alpha(0.5),
+        base_color: Color::from(YELLOW).with_alpha(TRANSPARENT_BASE_ALPHA),
         alpha_mode: AlphaMode::Blend,
         ..default()
     });
     let non_intersect_sphere_mat = materials.add(Color::from(BLUE));
 
     commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(0.5))),
+        Mesh3d(meshes.add(Sphere::new(NON_INTERSECTING_SPHERE_RADIUS))),
         MeshMaterial3d(non_intersect_sphere_mat),
-        Transform::from_xyz(-0.75, 1.0, -7.8),
+        Transform::from_translation(NON_INTERSECTING_SPHERE_POSITION),
         Outline::world_hull(INITIAL_HULL_WIDTH_WORLD)
             .with_color(Color::from(GREEN))
-            .with_intensity(10.0)
+            .with_intensity(SECONDARY_OUTLINE_INTENSITY)
             .with_overlap(INITIAL_HULL_OVERLAP)
             .build(),
     ));
 
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(0.6, 0.6, 0.6))),
+        Mesh3d(meshes.add(Cuboid::from_length(NON_INTERSECTING_CUBE_EDGE))),
         MeshMaterial3d(non_intersect_cube_mat),
-        Transform::from_xyz(0.0, 1.0, -4.0)
-            .with_rotation(Quat::from_rotation_x(PI / 5.0) * Quat::from_rotation_y(PI / 3.0)),
+        Transform::from_translation(NON_INTERSECTING_CUBE_POSITION).with_rotation(
+            Quat::from_rotation_x(CUBE_ROTATION_X) * Quat::from_rotation_y(CUBE_ROTATION_Y),
+        ),
         Outline::world_hull(INITIAL_HULL_WIDTH_WORLD)
             .with_color(Color::from(RED))
             .with_overlap(INITIAL_HULL_OVERLAP)
@@ -214,14 +264,14 @@ fn setup_ui(mut commands: Commands) {
     commands.spawn((
         Text::new(""),
         TextFont {
-            font_size: 24.0,
+            font_size: STATUS_TEXT_FONT_SIZE,
             ..default()
         },
         TextColor(Color::WHITE),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(STATUS_TEXT_PADDING),
+            left: Val::Px(STATUS_TEXT_PADDING),
             ..default()
         },
         StatusText,
@@ -296,10 +346,10 @@ fn adjust_outline_width(
         OutlineMethod::JumpFlood => {
             let mut next = width_control.jump_flood_width_px;
             if decrease {
-                next = (next - 1.0).max(1.0);
+                next = (next - JUMP_FLOOD_WIDTH_STEP).max(JUMP_FLOOD_WIDTH_MIN);
             }
             if increase {
-                next += 1.0;
+                next += JUMP_FLOOD_WIDTH_STEP;
             }
             width_control.jump_flood_width_px = next;
             for mut outline in &mut outline_query {
@@ -309,12 +359,12 @@ fn adjust_outline_width(
         OutlineMethod::WorldHull => {
             let mut next = width_control.hull_width_world;
             if decrease {
-                next /= 1.2;
+                next /= WORLD_HULL_WIDTH_SCALE_FACTOR;
             }
             if increase {
-                next *= 1.2;
+                next *= WORLD_HULL_WIDTH_SCALE_FACTOR;
             }
-            width_control.hull_width_world = next.clamp(0.0001, 10.0);
+            width_control.hull_width_world = next.clamp(WORLD_HULL_WIDTH_MIN, WORLD_HULL_WIDTH_MAX);
             for mut outline in &mut outline_query {
                 outline.width = width_control.hull_width_world;
             }
@@ -322,10 +372,10 @@ fn adjust_outline_width(
         OutlineMethod::ScreenHull => {
             let mut next = width_control.shell_width_px;
             if decrease {
-                next = (next - 0.5).max(0.5);
+                next = (next - SCREEN_HULL_WIDTH_STEP).max(SCREEN_HULL_WIDTH_MIN);
             }
             if increase {
-                next += 0.5;
+                next += SCREEN_HULL_WIDTH_STEP;
             }
             width_control.shell_width_px = next;
             for mut outline in &mut outline_query {
@@ -418,10 +468,10 @@ fn update_ui(
     text_query.0 = format!("{mode_line}\n{width_line}\n{overlap_line}");
 }
 
-const fn overlap_mode_label(mode: OverlapMode) -> &'static str {
-    match mode {
+const fn overlap_mode_label(overlap_mode: OverlapMode) -> &'static str {
+    match overlap_mode {
         OverlapMode::Merged => "Merged",
-        OverlapMode::PerMesh => "PerMesh",
         OverlapMode::Grouped => "Grouped",
+        OverlapMode::PerMesh => "PerMesh",
     }
 }
