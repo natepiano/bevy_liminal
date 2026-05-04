@@ -1,22 +1,13 @@
 use std::collections::HashMap;
 
 use bevy::mesh::Indices;
-use bevy::mesh::MeshVertexAttribute;
 use bevy::mesh::PrimitiveTopology;
 use bevy::mesh::VertexAttributeValues;
 use bevy::prelude::*;
-use bevy::render::render_resource::VertexFormat;
 
 use super::Outline;
+use super::constants::ATTRIBUTE_OUTLINE_NORMAL;
 use super::constants::DEGENERATE_EDGE_THRESHOLD;
-
-/// Custom vertex attribute storing pre-computed smoothed outline normals.
-///
-/// These normals are averaged across all faces sharing a vertex position,
-/// weighted by the angle at each face, producing smooth silhouette extrusion
-/// even on hard-edged meshes.
-pub const ATTRIBUTE_OUTLINE_NORMAL: MeshVertexAttribute =
-    MeshVertexAttribute::new("Outline_Normal", 988_540_917, VertexFormat::Float32x3);
 
 /// Computes angle-weighted smoothed outline normals and stores them as
 /// [`ATTRIBUTE_OUTLINE_NORMAL`] on the mesh.

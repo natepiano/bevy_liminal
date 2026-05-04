@@ -9,8 +9,8 @@ use crate::constants::AUTO_EXIT_DELAY_SECS;
 use crate::constants::AUTO_STARTUP_DELAY_SECS;
 use crate::constants::MEASURE_FRAMES;
 use crate::constants::MILLISECONDS_PER_SECOND;
+use crate::constants::SCENARIOS;
 use crate::constants::WARMUP_FRAMES;
-use crate::scenarios::SCENARIOS;
 use crate::scenarios::ScenarioDefinition;
 use crate::state::BenchmarkMode;
 use crate::state::BenchmarkPhase;
@@ -124,9 +124,12 @@ fn benchmark_stats_line(frame_times: &[f64], col: usize) -> String {
     }
 
     let sum: f64 = frame_times.iter().sum();
-    let avg = sum / frame_times.len().to_f64();
-    let avg_fps = MILLISECONDS_PER_SECOND / avg;
-    format!("\n{:<col$}FPS: {avg_fps:<4.0}  Frame: {avg:.2}ms", "Bench:")
+    let average = sum / frame_times.len().to_f64();
+    let average_frames_per_second = MILLISECONDS_PER_SECOND / average;
+    format!(
+        "\n{:<col$}FPS: {average_frames_per_second:<4.0}  Frame: {average:.2}ms",
+        "Bench:"
+    )
 }
 
 fn append_results_section(
@@ -174,11 +177,11 @@ fn append_result_row(
     {
         let _ = write!(
             hud,
-            "\n{label:<col$}FPS: {:<4.0}  Frame: {:.2}ms  med: {:.2}ms  p95: {:.2}ms",
-            result.avg_fps(),
-            result.avg,
+            "\n{label:<col$}FPS: {:<4.0}  Frame: {:.2}ms  median: {:.2}ms  95th: {:.2}ms",
+            result.average_frames_per_second(),
+            result.average,
             result.median,
-            result.p95,
+            result.percentile_95,
         );
     } else {
         let _ = write!(hud, "\n{label:<col$}---");

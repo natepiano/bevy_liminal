@@ -17,8 +17,8 @@ use bevy::render::render_resource::TextureSampleType;
 use bevy::render::render_resource::binding_types;
 use bevy::shader::ShaderDefVal;
 
+use super::constants::COMPOSE_SHADER_HANDLE;
 use super::hull_pipeline::DynamicRange;
-use super::shaders::COMPOSE_SHADER_HANDLE;
 
 /// Whether the view uses multi-sample anti-aliasing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

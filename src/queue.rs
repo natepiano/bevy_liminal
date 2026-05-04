@@ -19,6 +19,7 @@ use bevy_render::view::RenderVisibleEntities;
 use super::DrawHull;
 use super::DrawOutline;
 use super::camera::OutlineCamera;
+use super::constants::ATTRIBUTE_OUTLINE_NORMAL;
 use super::extract::ActiveOutlineModes;
 use super::extract::ExtractedOutlineUniforms;
 use super::hull_pipeline::HullPipeline;
@@ -32,7 +33,6 @@ use super::mask_pipeline::HullPresence;
 use super::mask_pipeline::MaskPipelineKey;
 use super::mask_pipeline::MeshMaskPipeline;
 use super::outline::OutlineMethod;
-use super::outline_normals::ATTRIBUTE_OUTLINE_NORMAL;
 
 pub(crate) fn queue_outline(
     extracted_outlines: Res<ExtractedOutlineUniforms>,

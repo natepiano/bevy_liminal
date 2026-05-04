@@ -11,20 +11,20 @@ use crate::constants::MILLISECONDS_PER_SECOND;
 
 #[derive(Clone)]
 pub(super) struct ScenarioResult {
-    pub(super) name:   String,
-    pub(super) frames: u32,
-    pub(super) avg:    f64,
-    pub(super) median: f64,
-    pub(super) p95:    f64,
-    pub(super) p99:    f64,
-    pub(super) min:    f64,
-    pub(super) max:    f64,
+    pub(super) name:          String,
+    pub(super) frames:        u32,
+    pub(super) average:       f64,
+    pub(super) median:        f64,
+    pub(super) percentile_95: f64,
+    pub(super) percentile_99: f64,
+    pub(super) min:           f64,
+    pub(super) max:           f64,
 }
 
 impl ScenarioResult {
-    pub(super) fn avg_fps(&self) -> f64 {
-        if self.avg > 0.0 {
-            MILLISECONDS_PER_SECOND / self.avg
+    pub(super) fn average_frames_per_second(&self) -> f64 {
+        if self.average > 0.0 {
+            MILLISECONDS_PER_SECOND / self.average
         } else {
             0.0
         }
@@ -36,20 +36,20 @@ pub(super) fn compute_statistics(name: &str, frame_times: &mut [f64]) -> Scenari
 
     let len = frame_times.len();
     let sum: f64 = frame_times.iter().sum();
-    let avg = sum / len.to_f64();
+    let average = sum / len.to_f64();
     let median = percentile(frame_times, 50.0);
-    let p95 = percentile(frame_times, 95.0);
-    let p99 = percentile(frame_times, 99.0);
+    let percentile_95 = percentile(frame_times, 95.0);
+    let percentile_99 = percentile(frame_times, 99.0);
     let min = frame_times.first().copied().unwrap_or(0.0);
     let max = frame_times.last().copied().unwrap_or(0.0);
 
     ScenarioResult {
         name: (*name).to_string(),
         frames: len.to_u32(),
-        avg,
+        average,
         median,
-        p95,
-        p99,
+        percentile_95,
+        percentile_99,
         min,
         max,
     }
@@ -69,36 +69,36 @@ pub(super) fn write_results(results: &[ScenarioResult]) {
     let _ = writeln!(table, "\n=== bevy_liminal Benchmark Results ===\n");
     let _ = writeln!(
         table,
-        "{:<18}| {:>6} | {:>8} | {:>8} | {:>8} | {:>8} | {:>8} | {:>8} | {:>6}",
+        "{:<18}| {:>6} | {:>11} | {:>11} | {:>11} | {:>11} | {:>11} | {:>11} | {:>6}",
         "Scenario",
         "Frames",
-        "Avg(ms)",
-        "Med(ms)",
-        "P95(ms)",
-        "P99(ms)",
+        "Average(ms)",
+        "Median(ms)",
+        "95th(ms)",
+        "99th(ms)",
         "Min(ms)",
         "Max(ms)",
-        "~FPS"
+        "FPS"
     );
     let _ = writeln!(
         table,
-        "{:-<18}|{:->8}|{:->10}|{:->10}|{:->10}|{:->10}|{:->10}|{:->10}|{:->8}",
+        "{:-<18}|{:->8}|{:->13}|{:->13}|{:->13}|{:->13}|{:->13}|{:->13}|{:->8}",
         "", "", "", "", "", "", "", "", ""
     );
 
     for result in results {
         let _ = writeln!(
             table,
-            "{:<18}| {:>6} | {:>8.2} | {:>8.2} | {:>8.2} | {:>8.2} | {:>8.2} | {:>8.2} | {:>6.0}",
+            "{:<18}| {:>6} | {:>11.2} | {:>11.2} | {:>11.2} | {:>11.2} | {:>11.2} | {:>11.2} | {:>6.0}",
             result.name,
             result.frames,
-            result.avg,
+            result.average,
             result.median,
-            result.p95,
-            result.p99,
+            result.percentile_95,
+            result.percentile_99,
             result.min,
             result.max,
-            result.avg_fps()
+            result.average_frames_per_second()
         );
     }
 
@@ -135,7 +135,7 @@ fn write_csv(results: &[ScenarioResult]) -> Result<String, std::io::Error> {
     let mut file = File::create(&path)?;
     writeln!(
         file,
-        "scenario,frames,avg_ms,median_ms,p95_ms,p99_ms,min_ms,max_ms,avg_fps"
+        "scenario,frames,average_ms,median_ms,percentile_95_ms,percentile_99_ms,min_ms,max_ms,average_frames_per_second"
     )?;
     for result in results {
         writeln!(
@@ -143,13 +143,13 @@ fn write_csv(results: &[ScenarioResult]) -> Result<String, std::io::Error> {
             "{},{},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.0}",
             result.name,
             result.frames,
-            result.avg,
+            result.average,
             result.median,
-            result.p95,
-            result.p99,
+            result.percentile_95,
+            result.percentile_99,
             result.min,
             result.max,
-            result.avg_fps()
+            result.average_frames_per_second()
         )?;
     }
     Ok(path.display().to_string())

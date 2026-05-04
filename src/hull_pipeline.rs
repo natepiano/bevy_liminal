@@ -44,10 +44,10 @@ use bevy_render::sync_world::MainEntity;
 use bevy_render::view::ViewTarget;
 use nonmax::NonMaxU32;
 
+use super::constants::ATTRIBUTE_OUTLINE_NORMAL;
+use super::constants::HULL_SHADER_HANDLE;
 use super::constants::OUTLINE_NORMAL_SHADER_LOCATION;
 use super::indexing_mode::IndexingMode;
-use super::outline_normals::ATTRIBUTE_OUTLINE_NORMAL;
-use super::shaders::HULL_SHADER_HANDLE;
 use super::uniforms::OutlineUniform;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

@@ -36,8 +36,8 @@ use bevy_render::renderer::RenderDevice;
 use bevy_render::sync_world::MainEntity;
 use nonmax::NonMaxU32;
 
+use super::constants::MASK_SHADER_HANDLE;
 use super::indexing_mode::IndexingMode;
-use super::shaders::MASK_SHADER_HANDLE;
 use super::uniforms::OutlineUniform;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

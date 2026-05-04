@@ -5,11 +5,11 @@ use crate::constants::AUTO_EXIT_DELAY_SECS;
 use crate::constants::AUTO_STARTUP_DELAY_SECS;
 use crate::constants::MEASURE_FRAMES;
 use crate::constants::MILLISECONDS_PER_SECOND;
+use crate::constants::SCENARIOS;
 use crate::constants::WARMUP_FRAMES;
 use crate::grid::BenchmarkEntity;
 use crate::results::compute_statistics;
 use crate::results::write_results;
-use crate::scenarios::SCENARIOS;
 use crate::scenarios::spawn_scenario;
 use crate::state::BenchmarkMode;
 use crate::state::BenchmarkPhase;
@@ -158,12 +158,12 @@ fn handle_analyze_phase(state: &mut BenchmarkState) {
     let result_name = state.result_name();
     let result = compute_statistics(&result_name, &mut state.frame_times);
     info!(
-        "  {} — avg: {:.2}ms, median: {:.2}ms, p95: {:.2}ms, ~{:.0} FPS",
+        "  {} — average: {:.2}ms, median: {:.2}ms, 95th: {:.2}ms, ~{:.0} FPS",
         result.name,
-        result.avg,
+        result.average,
         result.median,
-        result.p95,
-        result.avg_fps()
+        result.percentile_95,
+        result.average_frames_per_second()
     );
 
     if let Some(existing) = state
