@@ -29,6 +29,7 @@ use bevy::render::renderer::RenderContext;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::renderer::RenderQueue;
 use bevy::render::texture::CachedTexture;
+use bevy_kana::ToU32;
 use bevy_kana::ToUsize;
 use bevy_render::render_resource::TextureView;
 
@@ -58,6 +59,20 @@ pub(crate) fn prepare_flood_settings(
     for entity in cameras.iter() {
         commands.entity(entity).insert(flood_settings.clone());
     }
+}
+
+/// Number of jump-flood passes required to cover an outline of the given
+/// pixel width. Derived from the JFA radius: convert width → diameter,
+/// diameter → next-power-of-two radius, plus one final compose pass.
+/// Returns 0 when no flood is needed.
+pub(crate) fn jfa_pass_count(width: f32) -> u32 {
+    if width <= 0.0 {
+        return 0;
+    }
+    ((width * 2.0).ceil().to_u32() / 2 + 1)
+        .next_power_of_two()
+        .trailing_zeros()
+        + 1
 }
 
 #[derive(Resource)]

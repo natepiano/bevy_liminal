@@ -12,6 +12,11 @@ pub(crate) const DEGENERATE_EDGE_THRESHOLD: f32 = 1e-10;
 /// to the flood-fill shader.
 pub(crate) const JFA_NO_SEED_CLEAR_COLOR: LinearRgba = LinearRgba::new(-1.0, -1.0, -1.0, 0.0);
 
+/// Reverse-Z far-plane sentinel used when clearing the outline depth texture.
+/// Cleared to 0.0 so that any rendered outline fragment (closer than the far
+/// plane) will pass the depth comparison.
+pub(crate) const OUTLINE_DEPTH_FAR_PLANE_CLEAR: f32 = 0.0;
+
 /// Shader binding location for the outline normal vertex attribute.
 pub(crate) const OUTLINE_NORMAL_SHADER_LOCATION: u32 = 8;
 

@@ -175,3 +175,15 @@ impl OverlapMode {
         }
     }
 }
+
+impl OutlineMethod {
+    /// Returns the shader factor that selects shell-based shading
+    /// (1.0 for `ScreenHull`, 0.0 otherwise).
+    #[must_use]
+    pub(crate) const fn as_shell_mode_factor(self) -> f32 {
+        match self {
+            Self::ScreenHull => 1.0,
+            Self::JumpFlood | Self::WorldHull => 0.0,
+        }
+    }
+}

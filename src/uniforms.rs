@@ -4,7 +4,6 @@ use bytemuck::Pod;
 use bytemuck::Zeroable;
 
 use super::extract::ExtractedOutline;
-use super::outline::OutlineMethod;
 
 #[derive(Debug, Clone, ShaderType, Pod, Zeroable, Copy)]
 #[repr(C)]
@@ -17,19 +16,24 @@ pub(crate) struct OutlineUniform {
     pub(crate) owner_data: Vec4,
 }
 
+impl OutlineUniform {
+    /// Builds the `owner_data` channel layout: x = owner ID, y = shell-mode
+    /// shader factor, z/w = reserved padding.
+    const fn owner_data_for(owner_id: f32, shell_mode: f32) -> Vec4 {
+        Vec4::new(owner_id, shell_mode, 0.0, 0.0)
+    }
+}
+
 impl From<&ExtractedOutline> for OutlineUniform {
     fn from(outline: &ExtractedOutline) -> Self {
-        let shell_mode = match outline.mode {
-            OutlineMethod::ScreenHull => 1.0,
-            _ => 0.0,
-        };
+        let shell_mode = outline.mode.as_shell_mode_factor();
         Self {
             intensity:  outline.intensity,
             width:      outline.width,
             priority:   outline.priority,
             overlap:    outline.overlap,
             color:      outline.color,
-            owner_data: Vec4::new(outline.owner_id, shell_mode, 0.0, 0.0),
+            owner_data: Self::owner_data_for(outline.owner_id, shell_mode),
         }
     }
 }

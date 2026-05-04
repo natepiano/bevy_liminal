@@ -1,7 +1,6 @@
 use bevy::core_pipeline::prepass::ViewPrepassTextures;
 use bevy::ecs::query::QueryItem;
 use bevy::prelude::*;
-use bevy_kana::ToU32;
 use bevy_render::camera::ExtractedCamera;
 use bevy_render::render_graph::NodeRunError;
 use bevy_render::render_graph::RenderGraphContext;
@@ -29,7 +28,9 @@ use super::compose::ComposeOutputPipeline;
 use super::compose::ComposeVariant;
 use super::compose::SampleMode;
 use super::constants::JFA_NO_SEED_CLEAR_COLOR;
+use super::constants::OUTLINE_DEPTH_FAR_PLANE_CLEAR;
 use super::extract::ActiveOutlineModes;
+use super::flood;
 use super::flood::FloodSettings;
 use super::flood::JumpFloodPass;
 use super::flood::JumpFloodStep;
@@ -222,7 +223,7 @@ fn run_mask_init_pass(
         depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
             view:        outline_depth_view,
             depth_ops:   Some(Operations {
-                load:  LoadOp::Clear(0.0),
+                load:  LoadOp::Clear(OUTLINE_DEPTH_FAR_PLANE_CLEAR),
                 store: StoreOp::Store,
             }),
             stencil_ops: None,
@@ -332,15 +333,7 @@ fn run_jfa_composite(
 
     let post_process = view_target.post_process_write();
 
-    let outline_width: f32 = flood_settings.width;
-    let passes = if outline_width > 0.0 {
-        ((outline_width * 2.0).ceil().to_u32() / 2 + 1)
-            .next_power_of_two()
-            .trailing_zeros()
-            + 1
-    } else {
-        0
-    };
+    let passes = flood::jfa_pass_count(flood_settings.width);
 
     for size in (0..passes).rev() {
         flood_textures.swap_ping_pong();
